@@ -1,6 +1,6 @@
 {
   "name": "loopback-connector-akera",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Akera connector for LoopBack",
   "main": "index.js",
   "scripts": {
@@ -11,6 +11,7 @@
     "posttest": "./node_modules/.bin/istanbul check-coverage"
   },
   "dependencies": {
+  	"akera-api": ">= 1.0.3",
     "debug": "^2.1.1",
     "loopback-connector": "^2.1.0"
   },
