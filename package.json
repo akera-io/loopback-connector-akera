@@ -1,7 +1,7 @@
 {
   "name": "loopback-connector-akera",
-  "version": "1.0.4",
-  "description": "Akera connector for LoopBack",
+  "version": "1.0.5",
+  "description": "Akera connector for LoopBack framework",
   "main": "index.js",
   "scripts": {
     "lint": "./node_modules/.bin/jshint ./lib",

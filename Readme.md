@@ -3,16 +3,18 @@
  for [loopback-datasource-juggler] (https://github.com/strongloop/loopback-datasource-juggler/).
 
 ##Installation
-````sh
+```sh
+npm set registry http://repository.akera.io
 npm install loopback-connector-akera --save
-````
+```
 
 ##Basic use
 
 To use this connector you need `loopback-datasource-juggler` and [akera-api](http://repository.akera.io).
 
 1.`package.json` must contain these dependencies:
-	    ```json
+
+```json
     {
       ...
       "dependencies": {
@@ -21,7 +23,8 @@ To use this connector you need `loopback-datasource-juggler` and [akera-api](htt
       },
       ...
     }
-    ```
+```
+
 2. Quick start:
 
 ```javascript
