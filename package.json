@@ -1,6 +1,6 @@
 {
   "name": "loopback-connector-akera",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Akera connector for LoopBack",
   "main": "index.js",
   "scripts": {
