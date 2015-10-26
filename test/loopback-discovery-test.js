@@ -12,7 +12,7 @@ describe('Akera connector discovery', function() {
   });
 
   it('should return default database', function() {
-    ds.connector.getDefaultSchema().should.be.equal('sports2000');
+    should(ds.connector.getDefaultSchema()).be.undefined;
   });
 
   it('should return schemas', function(done) {
