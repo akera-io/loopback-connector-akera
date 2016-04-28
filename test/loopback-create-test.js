@@ -47,21 +47,48 @@ describe('Akera connector', function() {
         }
       });
     });
+    
+    it('should be able to insert multiple rows in the database', function(done) {
+      var toInsert = [{
+        CustNum : 135,
+        Name : 'NodeApi 1',
+        City : 'Cluj'
+      }, {
+        CustNum : 136,
+        Name : 'NodeApi 2',
+        City : 'Cluj'
+      }];
+      
+      Customer.create(toInsert, function(err, iRows) {
+        if (err)
+          done(err);
+        else {
+          try {
+            for (var i in iRows) {
+              (iRows[i].CustNum).should.be.exactly(toInsert[i].CustNum);
+              (iRows[i].Name).should.be.exactly(toInsert[i].Name);
+              (iRows[i].City).should.be.exactly(toInsert[i].City);
+            }
+            done();
+          } catch (err) {
+            done(err);
+          }
+        }
+      });
+    });
 
     it('should throw error when trying to insert if record exists (code 711)',
         function(done) {
-          this.timeout(3000);
+          this.timeout(5000);
           Customer.create({
             CustNum : 134,
             Name : "NodeApi",
             City : "Cluj"
           }, function(err, rsp) {
-            if (err) {
-              (err.code).should.be.exactly(711);
-              done();
-            } else if (rsp) {
-              done('Error: records were inserted');
-            }
+            if (err)
+              return done();
+            
+            done(new Error('Error: duplicate record was inserted.'));
           });
         });
     var uData;
@@ -125,6 +152,23 @@ describe('Akera connector', function() {
         else {
           try {
             (delRows.count).should.be.exactly(1);
+            done();
+          } catch (err) {
+            data(err);
+          }
+        }
+      });
+    });
+    
+    it('Delete should be able to delete multiple records ', function(done) {
+      Customer.destroyAll({
+        or: [ {CustNum : 135}, {CustNum : 136} ]
+      }, function(err, delRows) {
+        if (err)
+          done(err);
+        else {
+          try {
+            (delRows.count).should.be.exactly(2);
             done();
           } catch (err) {
             data(err);
