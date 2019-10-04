@@ -4,8 +4,8 @@ var datasource = require('loopback-datasource-juggler').DataSource;
 
 global.getDataSource = function() {
   var config = {
-    host : '10.10.10.6',
-    port : 37900,
+    host : '192.168.10.18',
+    port : 8900,
     useSSL : false,
     debug : true
   };
