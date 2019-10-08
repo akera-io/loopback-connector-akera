@@ -79,7 +79,7 @@ function DiscoveryDecorator(AkeraConnector) {
 
       for ( var f in fields) {
         var field = fields[f];
-        console.log(field);
+        
         result.push({
           owner : tblMeta.getDatabase(),
           tableName : tblMeta.getName(),
@@ -87,14 +87,14 @@ function DiscoveryDecorator(AkeraConnector) {
           dataType : field.type,
           columnType : field.type,
           dataLength: null,
-          dataPrecision: field.decimals,
+          dataPrecision: field.type.toUpperCase() === 'DECIMAL' ? field.decimals : null,
           dataScale: null,
           nullable : field.mandatory ? 'N' : 'Y',
           type : dataTypeConversion[field.type.toUpperCase()],
           generated: false
         });
       }
-
+      console.log(result);
       cb(null, result);
     }, cb);
   }

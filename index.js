@@ -1,1 +1,1 @@
-module.exports = require('./lib/loopback-connector-akera.js'); 
+module.exports = require('./dist/lib/akera.js').AkeraConnectorProxy; 

@@ -1,33 +1,43 @@
 {
   "name": "loopback-connector-akera",
-  "version": "1.0.17",
+  "version": "1.0.18",
   "description": "Akera connector for LoopBack framework",
   "main": "index.js",
   "scripts": {
-    "lint": "./node_modules/.bin/jshint ./lib",
-    "checkStyle": "./node_modules/.bin/jscs ./lib",
-    "pretest-mihai": "npm run-script lint && npm run-script checkStyle",
-    "test": "./node_modules/.bin/istanbul cover ./node_modules/.bin/_mocha -- --recursive -R spec test/*-test.js",
-    "posttest": "./node_modules/.bin/istanbul check-coverage"
+    "prepublishOnly": "gulp build && gulp doc",
+    "test": "gulp test",
+    "build": "gulp build"
   },
   "dependencies": {
-    "@akera/api": ">= 1.1.5",
+    "@akeraio/api": "^1.1.7",
+    "@loopback/repository": "^1.15.1",
     "@types/debug": "^4.1.5",
+    "@types/node": "^12.7.11",
     "async": "^3.1.0",
     "debug": "^4.1.1",
     "loopback-connector": "^4.9.0"
   },
   "devDependencies": {
-    "mocha": "^6.2.1",
-    "should": ">= 5.0",
-    "loopback-datasource-juggler": "^4.13.0",
-    "istanbul": ">= 0.3.6",
+    "@types/chai": "^4.2.3",
+    "@types/mocha": "^5.2.7",
+    "chai": "^4.2.0",
+    "del": "^5.1.0",
+    "gulp": "^4.0.2",
+    "gulp-istanbul": "^1.1.3",
+    "gulp-mocha": "^7.0.2",
+    "gulp-sourcemaps": "^2.6.5",
+    "gulp-strip-debug": "^3.0.0",
+    "gulp-typescript": "^5.0.1",
+    "gulp-uglify-es": "^1.0.4",
+    "istanbul": "^0.4.5",
+    "jscs": ">= 1.11",
     "jshint": ">= 2.6.0",
-    "jscs": ">= 1.11"
+    "loopback-datasource-juggler": "^4.13.0",
+    "mocha": "^6.2.1",
+    "remap-istanbul": "^0.13.0",
+    "should": ">= 5.0",
+    "typescript": "^3.6.3"
   },
-  "bundledDependencies": [
-    "akera-api"
-  ],
   "author": {
     "name": "Liviu Mihaianu",
     "email": "liviu.mihaianu@acorn.ro"

@@ -352,6 +352,7 @@ var AkeraConnector = function AkeraConnector(cfg) {
    */
   this.define = function(schema) {
     try {
+
       var model = schema.model || schema;
       var modelName = model.definition.name.toLowerCase();
       var fields = [];
@@ -361,7 +362,7 @@ var AkeraConnector = function AkeraConnector(cfg) {
 
       for ( var key in model.definition.properties) {
         var field = model.definition.properties[key];
-
+console.log(key, field);
         if (field.id) {
           pk[field.id - 1] = key;
         }
