@@ -84,5 +84,41 @@ export class AkeraConnectorProxy {
     });
   }
 
+  /**
+   * Creates a new model instance
+   * 
+   * @param {String}
+   *         modelName The model name
+   * @param {Object}
+   *         data Data to be inserted
+   * @param {Object}
+   *         options The options object
+   * @param {Function}
+   *         callback The callback function
+   */
+  public create(modelName: string, data: DataObject<Entity>[] | DataObject<Entity>, options: AnyObject, callback: Callback<DataObject<Entity>[] | DataObject<Entity>>){
+    //test if data is an array of objects who must be created
+    if ( Array.isArray(data) ){
+      this.connector.createAll( this.connector.getModel(modelName), data, options)
+        .then( (response) => {
+          callback && callback(null, response);
+        })
+        .catch( (err) => {
+          callback && callback(err);
+        });
+    }
+    else {
+      this.connector.create( this.connector.getModel(modelName), data, options )
+      .then( (response) => {
+        callback && callback(null, response);
+      })
+      .catch( (err) => {
+        callback && callback(err);
+      });
+    }
+  }
+
+  
+
 }
 
