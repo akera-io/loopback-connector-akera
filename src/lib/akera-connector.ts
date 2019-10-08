@@ -1,7 +1,8 @@
-import { connect, IConnection, ISetField, IQuerySelect, SelectionMode, Filter as AkeraFilter, QueryFilter, QuerySelect, QueryDelete, QueryUpdate, Record } from '@akeraio/api';
+import { connect, IConnection, ISetField, IQuerySelect, SelectionMode, Filter as AkeraFilter, QueryFilter, QuerySelect, QueryDelete, QueryUpdate, Record, IConnectionMeta } from '@akeraio/api';
 import { debug, Debugger } from 'debug';
 import { ConnectInfo } from '@akeraio/net';
 import { ModelDefinition, CrudConnector, Command, Class, Entity, DataObject, Filter, Where, Count, Model, Callback, AndClause, OrClause, PredicateComparison, ShortHandEqualType, AnyObject } from '@loopback/repository';
+import { AkeraDiscovery } from './akera-discovery';
 
 export declare type ComparableType = string | number | Date;
 
@@ -20,6 +21,7 @@ export class AkeraConnector implements CrudConnector {
   public interfaces?: string[];
 
   private connection: IConnection;
+  private discovery: AkeraDiscovery;
   private models: SchemaModel = {};
   private debugger: Debugger;
 
@@ -31,9 +33,19 @@ export class AkeraConnector implements CrudConnector {
     this.debugger.enabled = this.debugger.enabled || config.debug;
   }
 
-
-  private debuglog(...args: any[]) {
+  public debuglog(...args: any[]) {
     this.debugger && this.debugger(args);
+  }
+
+  public getMetaData (): IConnectionMeta {
+      return this.connection.meta;
+  }
+
+  public getDiscovery () {
+    if (!this.discovery)
+        this.discovery = new AkeraDiscovery(this);
+
+    return this.discovery;
   }
 
   public define(model: Class<Entity>) {
@@ -264,8 +276,6 @@ export class AkeraConnector implements CrudConnector {
     if (qry.tables.length === 0)
       return;
 
-    qry.tables[0].fields = [];
-
     if (filter) {
       if (filter.limit > 0)
         qry.limit = filter.limit;
@@ -273,6 +283,8 @@ export class AkeraConnector implements CrudConnector {
         qry.offset = filter.offset || filter.skip;
 
       if (filter.fields) {
+        qry.tables[0].fields = [];
+
         if (Array.isArray(filter.fields)) {
           for (let fld of filter.fields) {
             if (!model.properties[fld])
@@ -311,8 +323,9 @@ export class AkeraConnector implements CrudConnector {
         qry.tables[0].filter = this.getWhereClause(model, filter.where);
     }
 
-    if (qry.tables[0].fields.length === 0)
-      qry.tables[0].fields.push("*");
+    // select all fields if not specified
+    if (!qry.tables[0].fields || qry.tables[0].fields.length === 0)
+      qry.tables[0].fields = Object.keys(model.properties);
 
   }
 
