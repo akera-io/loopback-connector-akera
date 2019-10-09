@@ -250,10 +250,28 @@ export class AkeraConnector implements CrudConnector {
     }
 
     private getModelIds(model: ModelDefinition): string[] {
-        if (model.idProperties().length === 0)
+        if (model['__pks__'])
+            return model['__pks__'];
+
+        const ids: { name: string, id: number }[] = [];
+        let idx = 1;
+
+        for (let p in model.properties) {
+            let fldId = model.properties[p].id;
+            if (fldId)
+                ids.push({ name: p, id: typeof fldId === 'number' ? fldId : idx++ });
+        }
+
+        if (ids.length === 0)
             throw new Error(`The model ${model.name} does not have any primary key defined.`);
 
-        return model.idProperties();
+        model['__pks__'] = ids.sort((a, b) => {
+            return a.id - b.id;
+        }).map(item => {
+            return item.name;
+        });
+
+        return model['__pks__'];
     }
 
     private getFilterById?<IdType>(model: ModelDefinition, id: IdType): Where<Entity> {
