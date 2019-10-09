@@ -30,11 +30,13 @@ export class AkeraConnectorProxy {
  *         callback datasource callback function
  */
   public initialize = function (datasource: Datasource, callback?: Callback<undefined>) {
+    console.log('Akera Proxy initialize');
     this.connector = new AkeraConnector(datasource.settings);
   };
 
   // connects to an Akera Application Server
   public connect(callback?: Callback<undefined>): void {
+    console.log('Akera Proxy connect');
     this.connector.connect().then(() => {
       callback && callback(null);
     }).catch(err => {
@@ -44,6 +46,7 @@ export class AkeraConnectorProxy {
 
   // closes the active connection
   public disconnect(callback?: Callback<undefined>): void {
+    console.log('Akera Proxy disconect');
     this.connector.disconnect().then(() => {
       callback && callback(null);
     }).catch(err => {
@@ -76,6 +79,7 @@ export class AkeraConnectorProxy {
  *         callback The callback function
  */
   public all(modelName: string, filter: Filter, options: AnyObject, callback: Callback<DataObject<Entity>[]>) {
+    console.log('Akera Proxy all');
     this.connector.find(this.connector.getModel(modelName), filter, options).then((rows) => {
       callback && callback(null, rows);
     }).catch((err) => {
@@ -94,6 +98,7 @@ export class AkeraConnectorProxy {
    *         filter The where condition
    */
   public count(modelName: string, where: Where, options: AnyObject, callback: Callback<Count>) {
+    console.log('Akera Proxy count');
     this.connector.count(this.connector.getModel(modelName), where, options).then((count) => {
       callback && callback(null, count);
     }).catch((err) => {
@@ -115,7 +120,9 @@ export class AkeraConnectorProxy {
    */
   public create(modelName: string, data: DataObject<Entity>[] | DataObject<Entity>, options: AnyObject, callback: Callback<DataObject<Entity>[] | DataObject<Entity>>) {
     //test if data is an array of objects who must be created
+    console.log(data);
     if (Array.isArray(data)) {
+      console.log('Akera Proxy createAll');
       this.connector.createAll(this.connector.getModel(modelName), data, options)
         .then((response) => {
           callback && callback(null, response);
@@ -125,6 +132,7 @@ export class AkeraConnectorProxy {
         });
     }
     else {
+      console.log('Akera Proxy create');
       this.connector.create(this.connector.getModel(modelName), data, options)
         .then((response) => {
           callback && callback(null, response);
