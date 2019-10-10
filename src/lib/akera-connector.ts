@@ -25,7 +25,8 @@ export class AkeraConnector implements CrudConnector {
     public configModel?: Model;
     public interfaces?: string[];
 
-    private _connections: IConnection[];
+    private _available: IConnection[];
+    private _busy: IConnection[];
     private _connAvailableEvt: EventEmitter;
     private discovery: AkeraDiscovery;
     private models: SchemaModel = {};
@@ -39,11 +40,13 @@ export class AkeraConnector implements CrudConnector {
         this.debugger = debug('loopback:connector:akera');
         this.debugger.enabled = this.debugger.enabled || config.debug;
 
-        this._connections = [];
+        this._available = [];
+        this._busy = [];
+
         this._connAvailableEvt = new EventEmitter();
 
         if (this.poolingEnabled) {
-            this.debuglog('Connection pooling enabled: %s.', this.config.connectPoolSize);
+            this.debuglog(`Connection pooling enabled: ${this.config.connectPoolSize || 'unlimitted'}.`);
         }
     }
 
@@ -51,18 +54,19 @@ export class AkeraConnector implements CrudConnector {
         return this.config.connectPoolSize === undefined || this.config.connectPoolSize > 0;
     }
 
-    public get connectTimeout(): number {
-        // use a 30 seconds timeout by default
-        return this.config.connectTimeout || 30000;
-    }
-
     private get connection(): IConnection {
-        for (let conn of this._connections) {
-            if (conn.available)
-                return conn;
+        if (this._available.length > 0) {
+            const conn = this._available.pop();
+
+            this._busy.push(conn);
+            this.debuglog('Reuse one connection from the connection pool.');
+
+            return conn;
         }
 
-        throw new Error(`No connection available for server: ${this.config.host}:${this.config.port}.`);
+        this.debuglog('No connection available in the connection pool.');
+
+        throw new Error('No connection available in the connection pool.');
     }
 
     private set connection(conn: IConnection) {
@@ -70,26 +74,37 @@ export class AkeraConnector implements CrudConnector {
 
         conn.stateChange.on('state', (state) => {
             if (state === ConnectionState.API) {
-                const availables = this._connections.filter((conn) => {
-                    return conn.available;
-                });
+                const idx = this._busy.indexOf(conn);
 
-                if (availables.length / this._connections.length * 100 > 75) {
-                    const idx = this._connections.indexOf(conn);
-                    if (idx !== -1) {
-                        this.debuglog('Clossing connection from the pool because of low load.');
-                        this._connections.splice(idx, 1);
-                        conn.disconnect().catch(err => {
-                            this.debuglog('Connection close error: %j.', err);
-                        });
+                if (idx !== -1) {
+                    conn = this._busy.splice(idx, 1)[0];
+
+                    if (this.poolingEnabled) {
+                        if (this._available.length > 1 && this._available.length > this._busy.length * 2) {
+
+                            this.debuglog(`Clossing connection from the pool because of low load: ${this._available.length}/${this._busy.length}.`);
+
+                            conn.disconnect().catch(err => {
+                                this.debuglog(`Connection close error: ${err.message}.`);
+                            });
+
+                        } else {
+                            this.debuglog('Add the connection back into the connection pool.');
+
+                            this._available.push(conn);
+                            this._connAvailableEvt.emit('available');
+                        }
+                    } else {
+                        // no pooling used, make the connection available again
+                        this._available.push(conn);
+                        this._connAvailableEvt.emit('available');
                     }
-                } else {
-                    this._connAvailableEvt.emit('available');
                 }
             }
         });
 
-        this._connections.push(conn);
+        // when new connection is made it is used by a request
+        this._busy.push(conn);
     }
 
     private getConnection(): Promise<IConnection> {
@@ -98,11 +113,11 @@ export class AkeraConnector implements CrudConnector {
             return Promise.resolve(this.connection);
         } catch (err) {
             // no connection available, try to start a new one if pool size not exceeded
-            if (this._connections.length === 0 || !this.config.connectPoolSize || this._connections.length < this.config.connectPoolSize) {
+            if (this._busy.length === 0 || !this.config.connectPoolSize || this._available.length < this.config.connectPoolSize) {
                 return connect(this.config)
                     .then(async (conn) => {
                         this.connection = conn;
-                        this.debuglog('Connection established: %s.', this.config.host + ':' + this.config.port);
+                        this.debuglog(`Connection established: ${this.config.host}:${this.config.port}.`);
 
                         if (this.config.database)
                             await conn.selectDatabase(this.config.database);
@@ -110,7 +125,7 @@ export class AkeraConnector implements CrudConnector {
                         return conn;
                     })
                     .catch(err => {
-                        this.debuglog('Connection error: %j', err);
+                        this.debuglog(`Connection error: ${err.message}.`);
                         throw err;
                     });
             } {
@@ -118,16 +133,22 @@ export class AkeraConnector implements CrudConnector {
 
                 return new Promise((resolve, reject) => {
                     let timedOut = false;
-                    let timer = setTimeout(() => {
-                        timedOut = true;
-                        this.debuglog('Connection time out: %s.', this.connectTimeout);
-                        reject(new Error(`Connection time out: ${this.connectTimeout}.`));
-                    }, this.connectTimeout);
+                    let timer: NodeJS.Timeout;
+
+                    if (this.config.connectTimeout > 0) {
+                        timer = setTimeout(() => {
+                            timedOut = true;
+                            this.debuglog(`Connection time out: ${this.config.connectTimeout}.`);
+                            reject(new Error(`Connection time out: ${this.config.connectTimeout}.`));
+                        }, this.config.connectTimeout);
+                    }
 
                     this._connAvailableEvt.once('available', () => {
                         // one connection became available, try to use that one if not timed out already
-                        if (!timedOut)
+                        if (!timedOut) {
+                            clearTimeout(timer);
                             this.getConnection().then(resolve).catch(reject);
+                        }
                     });
                 });
 
@@ -171,7 +192,7 @@ export class AkeraConnector implements CrudConnector {
 
     // closes the (all) active connection(s)
     public disconnect(): Promise<void> {
-        return Promise.all(this._connections.map((conn) => {
+        return Promise.all(this._available.map((conn) => {
             return conn.disconnect();
         })).then(() => {
 
