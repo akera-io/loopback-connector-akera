@@ -93,7 +93,6 @@ export class AkeraConnector implements CrudConnector {
     }
 
     private getConnection(): Promise<IConnection> {
-
         try {
             // try to resolve using one already available
             return Promise.resolve(this.connection);
@@ -142,9 +141,9 @@ export class AkeraConnector implements CrudConnector {
     }
 
     public async getMetaData(): Promise<IConnectionMeta> {
-        await this.connect();
+        const conn = await this.getConnection();
 
-        return this.connection.meta;
+        return conn.meta;
     }
 
     public getDiscovery() {
@@ -165,51 +164,29 @@ export class AkeraConnector implements CrudConnector {
 
     // connects to an Akera Application Server
     public connect(): Promise<void> {
-        if (this.connection !== null && !this.connection.closed) {
-            return Promise.resolve();
-        } else {
-            return connect(this.config)
-                .then(rsp => {
-                    this.connection = rsp;
-                    this.connection.autoReconnect = true;
-                    this.debuglog('Connection established: %s.', this.config.host + ':' + this.config.port);
+        return this.getConnection().then((conn) => {
 
-                    if (this.config.database)
-                        return rsp.selectDatabase(this.config.database);
-                })
-                .catch(err => {
-                    this.debuglog('Connection error: %j', err);
-                    throw err;
-                });
-        }
+        });
     }
 
-    // closes the active connection
+    // closes the (all) active connection(s)
     public disconnect(): Promise<void> {
-        if (this.connection === null || this.connection.closed) {
-            this.connection = null;
-            return Promise.resolve();
-        } else {
-            return this.connection.disconnect().then(() => {
-                this.debuglog('Connection closed: %s.', this.config.host + ':' + this.config.port);
-            }).catch((err) => {
-                this.debuglog('Connection close error: %s %j.', this.config.host + ':' + this.config.port, err);
-                throw err;
-            }).finally(() => {
-                this.connection = null;
-            })
-        }
+        return Promise.all(this._connections.map((conn) => {
+            return conn.disconnect();
+        })).then(() => {
+
+        });
     }
 
     async create(modelClass: Class<Entity>, entity: DataObject<Entity>, options?: AnyObject): Promise<DataObject<Entity>> {
-        await this.connect();
+        const conn = await this.getConnection();
         const fields: ISetField[] = [];
 
         for (let p in entity) {
             fields.push({ name: p, value: entity[p] });
         }
 
-        return this.connection.create({ table: modelClass.modelName, fields: fields });
+        return conn.create({ table: modelClass.modelName, fields: fields });
     }
 
     async createAll?(modelClass: Class<Entity>, entities: DataObject<Entity>[], options?: AnyObject): Promise<DataObject<Entity>[]> {
@@ -225,25 +202,23 @@ export class AkeraConnector implements CrudConnector {
     async find(modelClass: Class<Entity>, filter?: Filter<AnyObject>, options?: AnyObject): Promise<DataObject<Entity>[]> {
         const model: ModelDefinition = modelClass.definition;
 
-        // make sure we're connected or throw
-        await this.connect();
+        const conn = await this.getConnection();
 
         const qry: IQuerySelect = { tables: [{ name: model.name, select: SelectionMode.EACH }] };
 
         // transform loopback filter in akera.io format
         this.applyFilter(qry, model, filter);
 
-        return this.connection.select(qry);
+        return conn.select(qry);
     }
 
     async findById?<IdType>(modelClass: Class<Entity>, id: IdType, options?: AnyObject): Promise<DataObject<Entity>> {
         const model: ModelDefinition = modelClass.definition;
 
-        // make sure we're connected or throw
-        await this.connect();
+        const conn = await this.getConnection();
         const where = Array.isArray(id) ? this.getFilterByIds(model, id) : this.getFilterById(model, id);
 
-        const qry: QuerySelect = this.connection.query.select(model.name, this.getWhereClause(model, where));
+        const qry: QuerySelect = conn.query.select(model.name, this.getWhereClause(model, where));
 
         return qry.all().then((rows) => {
             if (rows.length === 1)
@@ -264,10 +239,9 @@ export class AkeraConnector implements CrudConnector {
 
     async updateAll(modelClass: Class<Entity>, data: DataObject<Entity>, where?: Where<Entity>, options?: AnyObject): Promise<Count> {
         const model: ModelDefinition = modelClass.definition;
+        const conn = await this.getConnection();
 
-        // make sure we're connected or throw
-        await this.connect();
-        const qry: QueryUpdate = this.connection.query.update(model.name, data as Record, this.getWhereClause(model, where));
+        const qry: QueryUpdate = conn.query.update(model.name, data as Record, this.getWhereClause(model, where));
 
         return qry.go().then((count) => {
             return { count: count };
@@ -276,11 +250,10 @@ export class AkeraConnector implements CrudConnector {
 
     async updateById?<IdType>(modelClass: Class<Entity>, id: IdType, data: DataObject<Entity>, options?: AnyObject): Promise<boolean> {
         const model: ModelDefinition = modelClass.definition;
+        const conn = await this.getConnection();
 
-        // make sure we're connected or throw
-        await this.connect();
         const filter = Array.isArray(id) ? this.getFilterByIds(model, id) : this.getFilterById(model, id);
-        const qry: QueryUpdate = this.connection.query.update(model.name, data as Record, this.getWhereClause(model, filter));
+        const qry: QueryUpdate = conn.query.update(model.name, data as Record, this.getWhereClause(model, filter));
 
         return qry.go().then((count) => {
             return count > 0;
@@ -293,11 +266,9 @@ export class AkeraConnector implements CrudConnector {
 
     async deleteAll(modelClass: Class<Entity>, where?: Where<Entity>, options?: AnyObject): Promise<Count> {
         const model: ModelDefinition = modelClass.definition;
+        const conn = await this.getConnection();
 
-        // make sure we're connected or throw
-        await this.connect();
-
-        const qry: QueryDelete = this.connection.query.delete(model.name, this.getWhereClause(model, where));
+        const qry: QueryDelete = conn.query.delete(model.name, this.getWhereClause(model, where));
 
         return qry.go().then((count) => {
             return { count: count };
@@ -306,11 +277,10 @@ export class AkeraConnector implements CrudConnector {
 
     async deleteById?<IdType>(modelClass: Class<Entity>, id: IdType, options?: AnyObject): Promise<boolean> {
         const model: ModelDefinition = modelClass.definition;
+        const conn = await this.getConnection();
 
-        // make sure we're connected or throw
-        await this.connect();
         const filter = Array.isArray(id) ? this.getFilterByIds(model, id) : this.getFilterById(model, id);
-        const qry: QueryDelete = this.connection.query.delete(model.name, this.getWhereClause(model, filter));
+        const qry: QueryDelete = conn.query.delete(model.name, this.getWhereClause(model, filter));
 
         return qry.go().then((count) => {
             return count > 0;
@@ -319,11 +289,9 @@ export class AkeraConnector implements CrudConnector {
 
     async count(modelClass: Class<Entity>, where?: Where<Entity>, options?: AnyObject): Promise<Count> {
         const model: ModelDefinition = modelClass.definition;
+        const conn = await this.getConnection();
 
-        // make sure we're connected or throw
-        await this.connect();
-
-        const qry: QuerySelect = this.connection.query.select(model.name, this.getWhereClause(model, where));
+        const qry: QuerySelect = conn.query.select(model.name, this.getWhereClause(model, where));
 
         return qry.count().then((count) => {
             return { count: count };
