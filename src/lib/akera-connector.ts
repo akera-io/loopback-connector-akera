@@ -3,12 +3,16 @@ import { debug, Debugger } from 'debug';
 import { ConnectInfo } from '@akeraio/net';
 import { ModelDefinition, CrudConnector, Command, Class, Entity, DataObject, Filter, Where, Count, Model, Callback, AndClause, OrClause, PredicateComparison, ShortHandEqualType, AnyObject } from '@loopback/repository';
 import { AkeraDiscovery } from './akera-discovery';
+import { EventEmitter } from 'events';
+import { ConnectionState } from '@akeraio/api/dist/lib/Connection';
 
 export declare type ComparableType = string | number | Date;
 
 export interface ConnectionOptions extends ConnectInfo {
     database?: string,
-    debug?: boolean
+    debug?: boolean,
+    connectPoolSize?: number,
+    connectTimeout?: number
 }
 
 export interface SchemaModel {
@@ -21,7 +25,8 @@ export class AkeraConnector implements CrudConnector {
     public configModel?: Model;
     public interfaces?: string[];
 
-    private connection: IConnection;
+    private _connections: IConnection[];
+    private _connAvailableEvt: EventEmitter;
     private discovery: AkeraDiscovery;
     private models: SchemaModel = {};
     private debugger: Debugger;
@@ -29,9 +34,107 @@ export class AkeraConnector implements CrudConnector {
     constructor(
         private config: ConnectionOptions
     ) {
-        this.connection = null;
+
+
         this.debugger = debug('loopback:connector:akera');
         this.debugger.enabled = this.debugger.enabled || config.debug;
+
+        this._connections = [];
+        this._connAvailableEvt = new EventEmitter();
+
+        if (this.poolingEnabled) {
+            this.debuglog('Connection pooling enabled: %s.', this.config.connectPoolSize);
+        }
+    }
+
+    public get poolingEnabled(): boolean {
+        return this.config.connectPoolSize === undefined || this.config.connectPoolSize > 0;
+    }
+
+    public get connectTimeout(): number {
+        // use a 30 seconds timeout by default
+        return this.config.connectTimeout || 30000;
+    }
+
+    private get connection(): IConnection {
+        for (let conn of this._connections) {
+            if (conn.available)
+                return conn;
+        }
+
+        throw new Error(`No connection available for server: ${this.config.host}:${this.config.port}.`);
+    }
+
+    private set connection(conn: IConnection) {
+        conn.autoReconnect = true;
+
+        conn.stateChange.on('state', (state) => {
+            if (state === ConnectionState.API) {
+                const availables = this._connections.filter((conn) => {
+                    return conn.available;
+                });
+
+                if (availables.length / this._connections.length * 100 > 75) {
+                    const idx = this._connections.indexOf(conn);
+                    if (idx !== -1) {
+                        this.debuglog('Clossing connection from the pool because of low load.');
+                        this._connections.splice(idx, 1);
+                        conn.disconnect().catch(err => {
+                            this.debuglog('Connection close error: %j.', err);
+                        });
+                    }
+                } else {
+                    this._connAvailableEvt.emit('available');
+                }
+            }
+        });
+
+        this._connections.push(conn);
+    }
+
+    private getConnection(): Promise<IConnection> {
+
+        try {
+            // try to resolve using one already available
+            return Promise.resolve(this.connection);
+        } catch (err) {
+            // no connection available, try to start a new one if pool size not exceeded
+            if (this._connections.length === 0 || !this.config.connectPoolSize || this._connections.length < this.config.connectPoolSize) {
+                return connect(this.config)
+                    .then(async (conn) => {
+                        this.connection = conn;
+                        this.debuglog('Connection established: %s.', this.config.host + ':' + this.config.port);
+
+                        if (this.config.database)
+                            await conn.selectDatabase(this.config.database);
+
+                        return conn;
+                    })
+                    .catch(err => {
+                        this.debuglog('Connection error: %j', err);
+                        throw err;
+                    });
+            } {
+                this.debuglog('No connection available, waiting for one to finish.');
+
+                return new Promise((resolve, reject) => {
+                    let timedOut = false;
+                    let timer = setTimeout(() => {
+                        timedOut = true;
+                        this.debuglog('Connection time out: %s.', this.connectTimeout);
+                        reject(new Error(`Connection time out: ${this.connectTimeout}.`));
+                    }, this.connectTimeout);
+
+                    this._connAvailableEvt.once('available', () => {
+                        // one connection became available, try to use that one if not timed out already
+                        if (!timedOut)
+                            this.getConnection().then(resolve).catch(reject);
+                    });
+                });
+
+            }
+
+        }
     }
 
     public debuglog(...args: any[]) {
