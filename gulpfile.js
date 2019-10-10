@@ -35,13 +35,13 @@ gulp.task('minify', function () {
 });
 
 gulp.task('clean:tests', function () {
-    return del(['test/**/*.js']);
+    return del(['test/dist/**/*.js']);
 });
 
 gulp.task('compile:tests', function () {
     return testProject.src()
         .pipe(testProject())
-        .pipe(gulp.dest('test'));
+        .pipe(gulp.dest('test/dist/'));
 });
 
 gulp.task('clean:cover', function () {
@@ -57,7 +57,7 @@ gulp.task('cover:prepare', function () {
 });
 
 gulp.task('run:tests', function () {
-    return gulp.src('test/**/*.js')
+    return gulp.src('test/dist/**/*.js')
         .pipe(mocha({
             reporter: 'spec',
             exit: true
