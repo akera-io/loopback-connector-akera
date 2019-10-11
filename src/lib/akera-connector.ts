@@ -21,7 +21,6 @@ export interface SchemaModel {
 
 export class AkeraConnector implements CrudConnector {
 
-    public name: 'akera.io';
     public configModel?: Model;
     public interfaces?: string[];
 
@@ -49,6 +48,13 @@ export class AkeraConnector implements CrudConnector {
             this.debuglog(`Connection pooling enabled: ${this.config.connectPoolSize || 'unlimitted'}.`);
         }
     }
+
+    public get name(): string {
+        if (!this.config)
+            return 'akera.io';
+
+        return `akera.io (${this.config.host}:${this.config.port})`;
+      }
 
     public get poolingEnabled(): boolean {
         return this.config.connectPoolSize === undefined || this.config.connectPoolSize > 0;
@@ -217,7 +223,12 @@ export class AkeraConnector implements CrudConnector {
     }
 
     save?(modelClass: Class<Entity>, entity: DataObject<Entity>, options?: AnyObject): Promise<DataObject<Entity>> {
-        throw new Error("Method not implemented.");
+        const model: ModelDefinition = modelClass.definition;
+        const modelId = this.getModelId(model, entity);
+
+        return this.updateById(modelClass, modelId, entity, options).then(result => {
+            return this.findById(modelClass, modelId);
+        });
     }
 
     async find(modelClass: Class<Entity>, filter?: Filter<AnyObject>, options?: AnyObject): Promise<DataObject<Entity>[]> {
@@ -251,11 +262,15 @@ export class AkeraConnector implements CrudConnector {
     }
 
     update?(modelClass: Class<Entity>, entity: DataObject<Entity>, options?: AnyObject): Promise<boolean> {
-        throw new Error("Method not implemented.");
+        const model: ModelDefinition = modelClass.definition;
+
+        return this.updateById(modelClass, this.getModelId(model, entity), entity, options);
     }
 
     delete?(modelClass: Class<Entity>, entity: DataObject<Entity>, options?: AnyObject): Promise<boolean> {
-        throw new Error("Method not implemented.");
+        const model: ModelDefinition = modelClass.definition;
+
+        return this.deleteById(modelClass, this.getModelId(model, entity), options);
     }
 
     async updateAll(modelClass: Class<Entity>, data: DataObject<Entity>, where?: Where<Entity>, options?: AnyObject): Promise<Count> {
@@ -265,7 +280,7 @@ export class AkeraConnector implements CrudConnector {
         const qry: QueryUpdate = conn.query.update(model.name, data as Record, this.getWhereClause(model, where));
 
         return qry.go().then((count) => {
-            return { count: count };
+            return { count: count > 0 ? count : 0 };
         });
     }
 
@@ -282,7 +297,9 @@ export class AkeraConnector implements CrudConnector {
     }
 
     replaceById?<IdType>(modelClass: Class<Entity>, id: IdType, data: DataObject<Entity>, options?: AnyObject): Promise<boolean> {
-        return this.updateById(modelClass, id, data, options);
+        const model: ModelDefinition = modelClass.definition;
+
+        return this.updateById(modelClass, id, this.resetMissingProperties(data, model, id), options);
     }
 
     async deleteAll(modelClass: Class<Entity>, where?: Where<Entity>, options?: AnyObject): Promise<Count> {
@@ -292,7 +309,7 @@ export class AkeraConnector implements CrudConnector {
         const qry: QueryDelete = conn.query.delete(model.name, this.getWhereClause(model, where));
 
         return qry.go().then((count) => {
-            return { count: count };
+            return { count: count > 0 ? count : 0 };
         });
     }
 
@@ -341,6 +358,19 @@ export class AkeraConnector implements CrudConnector {
         throw new Error("Method not implemented.");
     }
 
+    private resetMissingProperties<IdType>(data: DataObject<Entity>, model: ModelDefinition, id: IdType): DataObject<Entity> {
+        for (let p in model.properties) {
+            if (model.properties[p].id)
+                data[p] = id;
+            else {
+                if (data[p] === undefined)
+                    data[p] = null;
+            }
+        }
+
+        return data;
+    }
+
     private getModelIds(model: ModelDefinition): string[] {
         if (model['__pks__'])
             return model['__pks__'];
@@ -364,6 +394,15 @@ export class AkeraConnector implements CrudConnector {
         });
 
         return model['__pks__'];
+    }
+
+    private getModelId<IdType>(model: ModelDefinition, entity: DataObject<Entity>): IdType {
+        const keys = this.getModelIds(model);
+
+        if (keys.length === 1)
+            return entity[keys[0]];
+
+        throw new Error(`The primary key for model ${model.name} is composed: ${keys.join(",")}.`);
     }
 
     private getFilterById?<IdType>(model: ModelDefinition, id: IdType): Where<Entity> {

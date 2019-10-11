@@ -7,6 +7,10 @@ export interface Datasource {
   settings?: ConnectionOptions
 }
 
+export class NotFoundError extends Error {
+  public statusCode = 404;
+}
+
 /**
  * The signature of loopback connector is different from that
  * on @loopback/repository, we implement the later and use a proxy.
@@ -21,22 +25,13 @@ export class AkeraConnectorProxy {
       this.connector = new AkeraConnector(config);
   }
 
-  /**
- * Initialize the Akera connector for the given datasource
- * 
- * @param {datasource}
- *         datasource loopback-datasource-juggler datasource
- * @param {Function}
- *         callback datasource callback function
- */
-  public initialize = function (datasource: Datasource, callback?: Callback<undefined>) {
-    console.log('Akera Proxy initialize');
-    this.connector = new AkeraConnector(datasource.settings);
-  };
+  public get name(): string {
+    return this.connector.name;
+  }
 
   // connects to an Akera Application Server
   public connect(callback?: Callback<undefined>): void {
-    console.log('Akera Proxy connect');
+    console.log('Akera connect');
     this.connector.connect().then(() => {
       callback && callback(null);
     }).catch(err => {
@@ -46,7 +41,6 @@ export class AkeraConnectorProxy {
 
   // closes the active connection
   public disconnect(callback?: Callback<undefined>): void {
-    console.log('Akera Proxy disconect');
     this.connector.disconnect().then(() => {
       callback && callback(null);
     }).catch(err => {
@@ -79,10 +73,10 @@ export class AkeraConnectorProxy {
  *         callback The callback function
  */
   public all(modelName: string, filter: Filter, options: AnyObject, callback: Callback<DataObject<Entity>[]>) {
-    console.log('Akera Proxy all');
     this.connector.find(this.connector.getModel(modelName), filter, options).then((rows) => {
       callback && callback(null, rows);
-    }).catch((err) => {
+    }).catch((err: Error) => {
+      delete err.stack;
       callback && callback(err);
     });
   }
@@ -97,11 +91,11 @@ export class AkeraConnectorProxy {
    * @param {filter}
    *         filter The where condition
    */
-  public count(modelName: string, where: Where, options: AnyObject, callback: Callback<Count>) {
-    console.log('Akera Proxy count');
+  public count(modelName: string, where: Where, options: AnyObject, callback: Callback<number>) {
     this.connector.count(this.connector.getModel(modelName), where, options).then((count) => {
-      callback && callback(null, count);
-    }).catch((err) => {
+      callback && callback(null, count && count.count || 0);
+    }).catch((err: Error) => {
+      delete err.stack;
       callback && callback(err);
     });
   }
@@ -119,40 +113,41 @@ export class AkeraConnectorProxy {
    *         callback The callback function
    */
   public create(modelName: string, data: DataObject<Entity>, options: AnyObject, callback: Callback<DataObject<Entity>>) {
-    console.log(data);
-    console.log('Akera Proxy create');
     this.connector.create(this.connector.getModel(modelName), data, options)
       .then((response) => {
         callback && callback(null, response);
       })
-      .catch((err) => {
+      .catch((err: Error) => {
+        delete err.stack;
         callback && callback(err);
       });
   }
 
-   /**
-   * Update model used by PUT verb
-   * 
-   * @param {String}
-   *         modelName The model name
-   * @param {String}
-   *         id The model id
-   * @param {Object}
-   *         data Data to be updated
-   * @param {Object}
-   *         options The options object
-   * @param {Function}
-   *         callback The callback function
-   */
-  public replaceById(modelName: string, id:string, data: DataObject<Entity>, options: AnyObject, callback: Callback<boolean>) {
-    console.log('Akera Proxy replaceById used by PUT');
-    this.connector.replaceById(this.connector.getModel(modelName), id, data, options )
+  /**
+  * Update model used by PUT verb
+  * 
+  * @param {String}
+  *         modelName The model name
+  * @param {String}
+  *         id The model id
+  * @param {Object}
+  *         data Data to be updated
+  * @param {Object}
+  *         options The options object
+  * @param {Function}
+  *         callback The callback function
+  */
+  public replaceById(modelName: string, id: string, data: DataObject<Entity>, options: AnyObject, callback: Callback<void>) {
+    this.connector.replaceById(this.connector.getModel(modelName), id, data, options)
       .then((response) => {
-        callback && callback(null, response);
-        })
+        if (response)
+          callback && callback(null);
+        else
+          callback && callback(new NotFoundError(`Entity "${modelName}" with id "${id}" does not exist.`));
+      })
       .catch((err) => {
         callback && callback(err);
-    });
+      });
   }
 
   /**
@@ -169,15 +164,14 @@ export class AkeraConnectorProxy {
    * @param {Function}
    *         callback The callback function
    */
-  public update(modelName: string, id:string, data: DataObject<Entity>, options: AnyObject, callback: Callback<boolean>) {
-    console.log('Akera Proxy update used by PATCH');
-    // this.connector.replaceById(this.connector.getModel(modelName), id, data, options )
-    //   .then((response) => {
-    //     callback && callback(null, response);
-    //     })
-    //   .catch((err) => {
-    //     callback && callback(err);
-    // });
+  public update(modelName: string, where: Where<Entity>, data: DataObject<Entity>, options: AnyObject, callback: Callback<Count>) {
+    this.connector.updateAll(this.connector.getModel(modelName), data, where, options)
+      .then((response) => {
+        callback && callback(null, response);
+      })
+      .catch((err) => {
+        callback && callback(err);
+      });
   }
 
   /**
@@ -194,15 +188,14 @@ export class AkeraConnectorProxy {
    * @param {Function}
    *         callback The callback function
    */
-  public destroyAll(modelName: string, id:string, options: AnyObject, callback: Callback<boolean>) {
-    console.log('Akera Proxy destroyAll used by DELETE');
-    // this.connector.replaceById(this.connector.getModel(modelName), id, data, options )
-    //   .then((response) => {
-    //     callback && callback(null, response);
-    //     })
-    //   .catch((err) => {
-    //     callback && callback(err);
-    // });
+  public destroyAll(modelName: string, where: Where<Entity>, options: AnyObject, callback: Callback<Count>) {
+    this.connector.deleteAll(this.connector.getModel(modelName), where, options)
+      .then((response) => {
+        callback && callback(null, response);
+      })
+      .catch((err) => {
+        callback && callback(err);
+      });
   }
 
   /**
