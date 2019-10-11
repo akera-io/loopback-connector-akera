@@ -130,22 +130,22 @@ export class AkeraConnectorProxy {
       });
   }
 
-  public createAll(modelName: string, data: DataObject<Entity>[], options: AnyObject, callback: Callback<DataObject<Entity>[]>) {
-    console.log('Akera Proxy createAll');
-    this.connector.createAll(this.connector.getModel(modelName), data, options)
-      .then((response) => {
-        callback && callback(null, response);
-      })
-      .catch((err) => {
-        callback && callback(err);
-      });
-
-  }
-
+   /**
+   * Update model used by PUT verb
+   * 
+   * @param {String}
+   *         modelName The model name
+   * @param {String}
+   *         id The model id
+   * @param {Object}
+   *         data Data to be updated
+   * @param {Object}
+   *         options The options object
+   * @param {Function}
+   *         callback The callback function
+   */
   public replaceById(modelName: string, id:string, data: DataObject<Entity>, options: AnyObject, callback: Callback<boolean>) {
-    console.log('Akera Proxy replaceById');
-    console.log(modelName,id, data, options);
-    //modelClass: Class<Entity>, id: IdType, data: DataObject<Entity>, options?: AnyObject
+    console.log('Akera Proxy replaceById used by PUT');
     this.connector.replaceById(this.connector.getModel(modelName), id, data, options )
       .then((response) => {
         callback && callback(null, response);
@@ -153,6 +153,56 @@ export class AkeraConnectorProxy {
       .catch((err) => {
         callback && callback(err);
     });
+  }
+
+  /**
+   * Update model used by PATCH verb
+   * 
+   * @param {String}
+   *         modelName The model name
+   * @param {String}
+   *         id The model id
+   * @param {Object}
+   *         data Data to be updated
+   * @param {Object}
+   *         options The options object
+   * @param {Function}
+   *         callback The callback function
+   */
+  public update(modelName: string, id:string, data: DataObject<Entity>, options: AnyObject, callback: Callback<boolean>) {
+    console.log('Akera Proxy update used by PATCH');
+    // this.connector.replaceById(this.connector.getModel(modelName), id, data, options )
+    //   .then((response) => {
+    //     callback && callback(null, response);
+    //     })
+    //   .catch((err) => {
+    //     callback && callback(err);
+    // });
+  }
+
+  /**
+   * Delete model used by DELETE verb
+   * 
+   * @param {String}
+   *         modelName The model name
+   * @param {String}
+   *         id The model id
+   * @param {Object}
+   *         data Data to be updated
+   * @param {Object}
+   *         options The options object
+   * @param {Function}
+   *         callback The callback function
+   */
+  public destroyAll(modelName: string, id:string, options: AnyObject, callback: Callback<boolean>) {
+    console.log('Akera Proxy destroyAll used by DELETE');
+    // this.connector.replaceById(this.connector.getModel(modelName), id, data, options )
+    //   .then((response) => {
+    //     callback && callback(null, response);
+    //     })
+    //   .catch((err) => {
+    //     callback && callback(err);
+    // });
   }
 
   /**
