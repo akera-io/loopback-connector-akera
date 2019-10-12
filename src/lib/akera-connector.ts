@@ -507,40 +507,40 @@ export class AkeraConnector implements CrudConnector {
     }
 
     private getWhereClausePredicate(fieldName: string, condition: PredicateComparison<AnyObject>): AkeraFilter {
-        if (!!condition.eq)
+        if (condition.eq != undefined)
             return QueryFilter.eq(fieldName, condition.eq as ShortHandEqualType);
 
-        if (!!condition.neq)
+        if (condition.neq != undefined)
             return QueryFilter.ne(fieldName, condition.neq as ShortHandEqualType);
 
-        if (!!condition.gt)
+        if (condition.gt != undefined)
             return QueryFilter.gt(fieldName, condition.gt as ComparableType);
 
-        if (!!condition.gte)
+        if (condition.gte != undefined)
             return QueryFilter.ge(fieldName, condition.gte as ComparableType);
 
-        if (!!condition.lt)
+        if (condition.lt != undefined)
             return QueryFilter.lt(fieldName, condition.lt as ComparableType);
 
-        if (!!condition.lte)
+        if (condition.lte != undefined)
             return QueryFilter.le(fieldName, condition.lte as ComparableType);
 
-        if (!!condition.like)
+        if (condition.like != undefined)
             return QueryFilter.like(fieldName, condition.like.toString());
 
-        if (!!condition.nlike)
+        if (condition.nlike != undefined)
             return QueryFilter.not(QueryFilter.like(fieldName, condition.nlike.toString()));
 
-        if (!!condition.between)
+        if (condition.between != undefined)
             return QueryFilter.and(QueryFilter.ge(fieldName, condition.between[0] as ComparableType),
                 QueryFilter.le(fieldName, condition.between[1] as ComparableType));
 
-        if (!!condition.inq)
+        if (condition.inq != undefined)
             return QueryFilter.or(condition.inq.map((c) => {
                 return QueryFilter.eq(fieldName, c as ShortHandEqualType);
             }));
 
-        if (!!condition.nin)
+        if (condition.nin != undefined)
             return QueryFilter.and(condition.nin.map((c) => {
                 return QueryFilter.ne(fieldName, c as ShortHandEqualType);
             }));
