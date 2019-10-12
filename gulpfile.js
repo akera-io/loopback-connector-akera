@@ -64,6 +64,14 @@ gulp.task('run:tests', function () {
         }));
 });
 
+gulp.task('run:testsdev', function () {
+    return gulp.src('test/dist/dev/**/*.js')
+        .pipe(mocha({
+            reporter: 'spec',
+            exit: true
+        }));
+});
+
 gulp.task('cover:test', function () {
     return gulp.src('test/**/*.js')
         .pipe(mocha({
@@ -87,4 +95,5 @@ gulp.task('cover:remap', function () {
 gulp.task('build', gulp.series('cleanup', 'compile', 'logging', 'minify'));
 gulp.task('build:debug', gulp.series('cleanup', 'compile'));
 gulp.task('test', gulp.series('cleanup', 'compile', 'clean:tests', 'compile:tests', 'run:tests'));
+gulp.task('testdev', gulp.series('cleanup', 'compile', 'clean:tests', 'compile:tests', 'run:testsdev'));
 gulp.task('cover', gulp.series('cleanup', 'compile', 'clean:cover', 'cover:prepare', 'cover:test', 'cover:remap'));
