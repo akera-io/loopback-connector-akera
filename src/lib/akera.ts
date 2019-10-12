@@ -29,9 +29,26 @@ export class AkeraConnectorProxy {
     return this.connector.name;
   }
 
+  public initialize (datasource: Datasource, callback?: Callback<void>): void {
+    if (!!datasource && !this.connector)
+      this.connector = new AkeraConnector(datasource.settings);
+
+    datasource['connector'] = this;
+    this.connect(() => {
+      callback && callback(null);
+    });
+  }
+
+  ping(): Promise<void> {
+    throw new Error("Method not implemented.");
+  }
+
+  execute?(...args: any[]): Promise<AnyObject> {
+    throw new Error("Method not implemented.");
+  }
+
   // connects to an Akera Application Server
-  public connect(callback?: Callback<undefined>): void {
-    console.log('Akera connect');
+  public connect(callback?: Callback<void>): void {
     this.connector.connect().then(() => {
       callback && callback(null);
     }).catch(err => {
@@ -40,7 +57,7 @@ export class AkeraConnectorProxy {
   }
 
   // closes the active connection
-  public disconnect(callback?: Callback<undefined>): void {
+  public disconnect(callback?: Callback<void>): void {
     this.connector.disconnect().then(() => {
       callback && callback(null);
     }).catch(err => {
