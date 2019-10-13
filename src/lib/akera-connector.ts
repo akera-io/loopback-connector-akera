@@ -50,11 +50,8 @@ export class AkeraConnector implements CrudConnector {
     }
 
     public get name(): string {
-        if (!this.config)
-            return 'akera.io';
-
-        return `akera.io (${this.config.host}:${this.config.port})`;
-      }
+        return 'akeraio';
+    }
 
     public get poolingEnabled(): boolean {
         return this.config.connectPoolSize === undefined || this.config.connectPoolSize > 0;
@@ -332,7 +329,7 @@ export class AkeraConnector implements CrudConnector {
         const qry: QuerySelect = conn.query.select(model.name, this.getWhereClause(model, where));
 
         return qry.count().then((count) => {
-            return { count: count };
+            return { count: count > 0 ? count : 0 };
         });
     }
 

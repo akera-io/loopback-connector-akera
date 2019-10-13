@@ -1,8 +1,8 @@
 
 import { AkeraConnector } from './akera-connector';
 import { FieldDataType } from '@akeraio/api';
-import { Field } from '@akeraio/api/dist/lib/meta/Field';
 import { Table } from '@akeraio/api/dist/lib/meta/Table';
+import { ModelProperties, Schema, Options } from 'loopback-datasource-juggler';
 
 export interface DiscoverPagingOptions {
     offset?: number,
@@ -12,18 +12,13 @@ export interface DiscoverPagingOptions {
 
 export interface DiscoverModelDefinitionsOptions extends DiscoverPagingOptions {
     schema?: string,
-    owner?: string
+    owner?: string,
+    loadProperties?: boolean
 }
 
 export interface DatabaseSchema {
     schema: string,
-    catalog: string
-}
-
-export interface ModelDefinition {
-    type: string,
-    name: string,
-    owner: string
+    models?: Schema[]
 }
 
 export enum ModelPropertyType {
@@ -34,26 +29,11 @@ export enum ModelPropertyType {
     String
 }
 
-export interface ModelPropertyDefinition {
-    owner: string,
-    tableName: string,
-    columnName: string,
-    dataType: FieldDataType,
-    columnType: FieldDataType,
-    dataLength?: number,
-    dataPrecision?: number,
-    dataScale?: number,
-    nullable: boolean,
-    type: string,
-    generated: boolean
-}
-
 export interface ModelKeyDefinition {
     owner: string,
     tableName: string,
     columnName: string,
-    keySeq: number,
-    pkName: string
+    keySeq: number
 }
 
 /**
@@ -62,10 +42,11 @@ export interface ModelKeyDefinition {
  */
 export class AkeraDiscovery {
 
+    private schemas: DatabaseSchema[];
+
     constructor(
         private connector: AkeraConnector
     ) {
-
     }
 
     /**
@@ -74,16 +55,19 @@ export class AkeraDiscovery {
    * @param {Object}
    *         options Options for discovery
    */
-    public async discoverDatabaseSchemas(options: DiscoverPagingOptions): Promise<DatabaseSchema[]> {
+    public async discoverDatabaseSchemas(options?: Options): Promise<DatabaseSchema[]> {
+
+        if (this.schemas)
+            return Promise.resolve(this.schemas);
+
         const meta = await this.connector.getMetaData();
-
         const dbs = await meta.getDatabases();
-        const start = options.offset || options.skip || 0;
-        const end = options.limit ? start + options.limit : dbs.length;
 
-        return dbs.slice(start, end).map((db, i) => {
-            return { catalog: db.lname, schema: db.lname };
+        this.schemas = dbs.map((db, i) => {
+            return { schema: db.lname };
         });
+
+        return this.schemas;
     }
 
     /**
@@ -92,27 +76,31 @@ export class AkeraDiscovery {
    * @param {Object}
    *         options Options for discovery
    */
-    public async discoverModelDefinitions(options: DiscoverModelDefinitionsOptions): Promise<ModelDefinition[]> {
+    public async discoverModelDefinitions(options: DiscoverModelDefinitionsOptions): Promise<Schema[]> {
         const meta = await this.connector.getMetaData();
+        const schema = await this.getSchema(options);
 
-        const dbs = (await meta.getDatabases()).filter(db => {
-            return !options.schema || options.schema === db.lname;
-        });
+        if (schema.models)
+            return schema.models;
 
-        const models: ModelDefinition[] = [];
+        const db = await meta.getDatabase(schema.schema);
+        const definitions: Schema[] = [];
 
-        for (let db of dbs) {
-            let tables = await db.getTables();
-            tables.forEach(table => {
-                models.push({
-                    type: 'table',
+        let tables = await db.getTables();
+        for (let table of tables) {
+            const properties = options.loadProperties ? await this.discoverModelProperties(table.name, options) : undefined;
+
+            definitions.push(
+                {
                     name: table.name,
-                    owner: db.lname
-                });
-            });
+                    properties: properties
+                }
+            );
         }
 
-        return models;
+        schema.models = definitions;
+
+        return definitions;
     }
 
     /**
@@ -124,25 +112,64 @@ export class AkeraDiscovery {
    *         options The options for discovery (schema/owner)
    * 
    */
-    public async discoverModelProperties(tableName: string, options: DiscoverModelDefinitionsOptions): Promise<ModelPropertyDefinition[]> {
-        const table = await this.getTable(tableName, options);
-        const fields = await table.getFields();
+    public async discoverModelProperties(tableName: string, options: DiscoverModelDefinitionsOptions): Promise<ModelProperties> {
+        try {
+            const schema = await this.getSchema(options);
+            let model: Schema;
 
-        return fields.map((field) => {
-            return {
-                columnName: field.name,
-                columnType: FieldDataType[field.type],
-                dataType: FieldDataType[field.type],
-                dataLength: null,
-                dataPrecision: field.type === FieldDataType.DECIMAL ? field.decimals : null,
-                dataScale: null,
-                generated: false,
-                nullable: !field.mandatory,
-                owner: table.database.lname,
-                tableName: tableName,
-                type: this.getPropertyType(field.type)
-            };
-        });
+            if (schema.models) {
+                const models = schema.models.filter((model) => {
+                    return model.name === tableName;
+                });
+                if (models.length > 0) {
+                    model = models[0];
+                    if (model.properties != undefined)
+                        return Promise.resolve(model.properties);
+                }
+            }
+
+            const table = await this.getTable(tableName, schema.schema);
+            const fields = await table.getFields();
+            const pk = await table.getPrimaryKey();
+            let properties: ModelProperties = {};
+
+            fields.forEach((field) => {
+                properties[field.name] = {
+                    columnName: field.name,
+                    columnType: FieldDataType[field.type.toUpperCase()],
+                    dataType: FieldDataType[field.type.toUpperCase()],
+                    dataLength: null,
+                    dataPrecision: field.type === FieldDataType.DECIMAL ? field.decimals : null,
+                    dataScale: null,
+                    generated: false,
+                    nullable: !field.mandatory,
+                    owner: table.database.lname,
+                    tableName: tableName,
+                    type: this.getPropertyType(field.type)
+                };
+            });
+
+            if (pk) {
+                if (pk.fields.length === 1)
+                    properties[pk.fields[0].field].id = true;
+                else {
+                    pk.fields.forEach((fld, idx) => {
+                        properties[fld.field].id = idx + 1;
+                    })
+                }
+            }
+
+            if (!model) {
+                schema.models = schema.models || [];
+                schema.models.push({ name: tableName, properties: properties });
+            } else {
+                model.properties = properties;
+            }
+
+            return Promise.resolve(properties);
+        } catch (err) {
+            return Promise.reject(err);
+        }
     }
 
     /**
@@ -155,41 +182,41 @@ export class AkeraDiscovery {
      * 
      */
     public async discoverPrimaryKeys(tableName: string, options: DiscoverModelDefinitionsOptions): Promise<ModelKeyDefinition[]> {
-        const table = await this.getTable(tableName, options);
-        const pk = await table.getPrimaryKey();
+        try {
+            const schema = await this.getSchema(options);
+            console.log('keys', tableName, schema.schema);
+            const properties = await this.discoverModelProperties(tableName, options);
+            const keys: ModelKeyDefinition[] = [];
 
-        return pk.fields.map((field, idx) => {
-            return {
-                owner: table.database.lname,
-                tableName: table.name,
-                columnName: field.field,
-                keySeq: idx + 1,
-                pkName: pk.name
-            };
-        });
+            for (let key in properties) {
+                const id = properties[key].id;
+
+                if (id) {
+                    console.log('key', properties[key]);
+                    keys.push({
+                        owner: schema.schema,
+                        tableName: tableName,
+                        columnName: key,
+                        keySeq: typeof id === 'number' ? id : 1
+                    });
+                }
+            }
+
+            console.log(keys);
+            return Promise.resolve(keys);
+        } catch (err) {
+            return Promise.reject(err);
+        }
     }
 
-    private async getTable(tableName: string, options: DiscoverModelDefinitionsOptions): Promise<Table> {
+    private async getTable(tableName: string, schema: string): Promise<Table> {
         if (!tableName && tableName.trim().length === 0)
             return Promise.reject('Table name is mandatory for model discovery.');
 
         const meta = await this.connector.getMetaData();
+        const db = await meta.getDatabase(schema);
 
-        const dbs = (await meta.getDatabases()).filter(db => {
-            return !options.schema || options.schema === db.lname;
-        });
-
-        for (let db of dbs) {
-            let tables = await db.getTables();
-
-            for (let table of tables) {
-                if (table.name === tableName) {
-                    return Promise.resolve(table);
-                }
-            }
-        }
-
-        return Promise.reject(`Table not found: ${tableName}.`);
+        return db.getTable(tableName);
     }
 
     private getPropertyType(fieldType: FieldDataType): string {
@@ -210,6 +237,27 @@ export class AkeraDiscovery {
             default:
                 return ModelPropertyType[ModelPropertyType.String];
         }
+    }
+
+    private async getSchema(options: DiscoverModelDefinitionsOptions): Promise<DatabaseSchema> {
+        const schema = options.schema || options.owner || '';
+
+        if (!this.schemas)
+            this.schemas = await this.discoverDatabaseSchemas();
+
+        if (this.schemas.length === 0)
+            throw new Error(`No schemas available for this connection.`);
+
+        if (schema.length > 0) {
+            if (this.schemas[schema])
+                return this.schemas[schema];
+
+            throw new Error(`Schema ${schema} not found.`);
+        }
+
+        for (let schema in this.schemas)
+            return this.schemas[schema];
+
     }
 
 }

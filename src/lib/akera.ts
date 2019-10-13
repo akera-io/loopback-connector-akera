@@ -1,7 +1,8 @@
 
 import { Class, Entity, DataObject, Filter, Where, Count, Callback, AnyObject } from '@loopback/repository';
 import { AkeraConnector, ConnectionOptions } from './akera-connector';
-import { DiscoverModelDefinitionsOptions, ModelDefinition, ModelPropertyDefinition, ModelKeyDefinition } from './akera-discovery';
+import { DiscoverModelDefinitionsOptions, ModelKeyDefinition } from './akera-discovery';
+import { Schema, PropertyDefinition } from 'loopback-datasource-juggler';
 
 export interface Datasource {
   settings?: ConnectionOptions
@@ -29,7 +30,7 @@ export class AkeraConnectorProxy {
     return this.connector.name;
   }
 
-  public initialize (datasource: Datasource, callback?: Callback<void>): void {
+  public initialize(datasource: Datasource, callback?: Callback<void>): void {
     if (!!datasource && !this.connector)
       this.connector = new AkeraConnector(datasource.settings);
 
@@ -223,8 +224,8 @@ export class AkeraConnectorProxy {
    * @param {Function}
    *         [callback] The callback function
    */
-  public discoverModelDefinitions(options: DiscoverModelDefinitionsOptions | Callback<ModelDefinition[]>,
-    callback?: Callback<ModelDefinition[]>) {
+  public discoverModelDefinitions(options: DiscoverModelDefinitionsOptions | Callback<Schema[]>,
+    callback?: Callback<Schema[]>) {
     const cb = typeof options === 'function' ? options : callback;
     const opts = typeof options === 'function' ? {} : options;
 
@@ -247,12 +248,14 @@ export class AkeraConnectorProxy {
    * 
    */
   public discoverModelProperties(table: string,
-    options: DiscoverModelDefinitionsOptions | Callback<ModelPropertyDefinition[]>,
-    callback?: Callback<ModelPropertyDefinition[]>) {
+    options: DiscoverModelDefinitionsOptions | Callback<PropertyDefinition[]>,
+    callback?: Callback<PropertyDefinition[]>) {
     const cb = typeof options === 'function' ? options : callback;
     const opts = typeof options === 'function' ? {} : options;
     this.connector.getDiscovery().discoverModelProperties(table, opts).then((definitions) => {
-      cb && cb(null, definitions);
+      cb && cb(null, Object.keys(definitions).map(key => {
+        return definitions[key];
+      }));
     }).catch((err) => {
       cb && cb(err);
     });
