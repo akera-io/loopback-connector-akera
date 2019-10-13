@@ -133,9 +133,8 @@ export class AkeraDiscovery {
         let properties: ModelProperties = {};
 
         fields.forEach((field) => {
-            properties[field.name] = {
+            properties[field.name.toLowerCase()] = {
                 columnName: field.name,
-                columnType: FieldDataType[field.type.toUpperCase()],
                 dataType: FieldDataType[field.type.toUpperCase()],
                 dataLength: null,
                 dataPrecision: field.type === FieldDataType.DECIMAL ? field.decimals : null,
@@ -150,10 +149,10 @@ export class AkeraDiscovery {
 
         if (pk) {
             if (pk.fields.length === 1)
-                properties[pk.fields[0].field].id = true;
+                properties[pk.fields[0].field.toLowerCase()].id = true;
             else {
                 pk.fields.forEach((fld, idx) => {
-                    properties[fld.field].id = idx + 1;
+                    properties[fld.field.toLowerCase()].id = idx + 1;
                 })
             }
         }
