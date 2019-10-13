@@ -113,63 +113,60 @@ export class AkeraDiscovery {
    * 
    */
     public async discoverModelProperties(tableName: string, options: DiscoverModelDefinitionsOptions): Promise<ModelProperties> {
-        try {
-            const schema = await this.getSchema(options);
-            let model: Schema;
+        const schema = await this.getSchema(options);
+        let model: Schema;
 
-            if (schema.models) {
-                const models = schema.models.filter((model) => {
-                    return model.name === tableName;
-                });
-                if (models.length > 0) {
-                    model = models[0];
-                    if (model.properties != undefined)
-                        return Promise.resolve(model.properties);
-                }
-            }
-
-            const table = await this.getTable(tableName, schema.schema);
-            const fields = await table.getFields();
-            const pk = await table.getPrimaryKey();
-            let properties: ModelProperties = {};
-
-            fields.forEach((field) => {
-                properties[field.name] = {
-                    columnName: field.name,
-                    columnType: FieldDataType[field.type.toUpperCase()],
-                    dataType: FieldDataType[field.type.toUpperCase()],
-                    dataLength: null,
-                    dataPrecision: field.type === FieldDataType.DECIMAL ? field.decimals : null,
-                    dataScale: null,
-                    generated: false,
-                    nullable: !field.mandatory,
-                    owner: table.database.lname,
-                    tableName: tableName,
-                    type: this.getPropertyType(field.type)
-                };
+        if (schema.models) {
+            const models = schema.models.filter((model) => {
+                return model.name === tableName;
             });
-
-            if (pk) {
-                if (pk.fields.length === 1)
-                    properties[pk.fields[0].field].id = true;
-                else {
-                    pk.fields.forEach((fld, idx) => {
-                        properties[fld.field].id = idx + 1;
-                    })
-                }
+            if (models.length > 0) {
+                model = models[0];
+                if (model.properties != undefined)
+                    return model.properties;
             }
-
-            if (!model) {
-                schema.models = schema.models || [];
-                schema.models.push({ name: tableName, properties: properties });
-            } else {
-                model.properties = properties;
-            }
-
-            return Promise.resolve(properties);
-        } catch (err) {
-            return Promise.reject(err);
         }
+
+        const table = await this.getTable(tableName, schema.schema);
+        const fields = await table.getFields();
+        const pk = await table.getPrimaryKey();
+        let properties: ModelProperties = {};
+
+        fields.forEach((field) => {
+            properties[field.name] = {
+                columnName: field.name,
+                columnType: FieldDataType[field.type.toUpperCase()],
+                dataType: FieldDataType[field.type.toUpperCase()],
+                dataLength: null,
+                dataPrecision: field.type === FieldDataType.DECIMAL ? field.decimals : null,
+                dataScale: null,
+                generated: false,
+                nullable: !field.mandatory,
+                owner: table.database.lname,
+                tableName: tableName,
+                type: this.getPropertyType(field.type)
+            };
+        });
+
+        if (pk) {
+            if (pk.fields.length === 1)
+                properties[pk.fields[0].field].id = true;
+            else {
+                pk.fields.forEach((fld, idx) => {
+                    properties[fld.field].id = idx + 1;
+                })
+            }
+        }
+
+        if (!model) {
+            schema.models = schema.models || [];
+            schema.models.push({ name: tableName, properties: properties });
+        } else {
+            model.properties = properties;
+        }
+
+        return properties;
+
     }
 
     /**
@@ -182,31 +179,23 @@ export class AkeraDiscovery {
      * 
      */
     public async discoverPrimaryKeys(tableName: string, options: DiscoverModelDefinitionsOptions): Promise<ModelKeyDefinition[]> {
-        try {
-            const schema = await this.getSchema(options);
-            console.log('keys', tableName, schema.schema);
-            const properties = await this.discoverModelProperties(tableName, options);
-            const keys: ModelKeyDefinition[] = [];
+        const schema = await this.getSchema(options);
+        const properties = await this.discoverModelProperties(tableName, options);
+        const keys: ModelKeyDefinition[] = [];
 
-            for (let key in properties) {
-                const id = properties[key].id;
+        for (let key in properties) {
+            const id = properties[key].id;
 
-                if (id) {
-                    console.log('key', properties[key]);
-                    keys.push({
-                        owner: schema.schema,
-                        tableName: tableName,
-                        columnName: key,
-                        keySeq: typeof id === 'number' ? id : 1
-                    });
-                }
+            if (id) {
+                keys.push({
+                    owner: schema.schema,
+                    tableName: tableName,
+                    columnName: key,
+                    keySeq: typeof id === 'number' ? id : 1
+                });
             }
-
-            console.log(keys);
-            return Promise.resolve(keys);
-        } catch (err) {
-            return Promise.reject(err);
         }
+        return keys;
     }
 
     private async getTable(tableName: string, schema: string): Promise<Table> {
@@ -257,7 +246,6 @@ export class AkeraDiscovery {
 
         for (let schema in this.schemas)
             return this.schemas[schema];
-
     }
 
 }
