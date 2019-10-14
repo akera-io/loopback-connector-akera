@@ -1,7 +1,7 @@
 import { connect, IConnection, ISetField, IQuerySelect, SelectionMode, Filter as AkeraFilter, QueryFilter, QuerySelect, QueryDelete, QueryUpdate, Record, IConnectionMeta, ISelectField } from '@akeraio/api';
 import { debug, Debugger } from 'debug';
 import { ConnectInfo } from '@akeraio/net';
-import { ModelDefinition, CrudConnector, Command, Class, Entity, DataObject, Filter, Where, Count, Model, Callback, AndClause, OrClause, PredicateComparison, ShortHandEqualType, AnyObject } from '@loopback/repository';
+import { ModelDefinition, CrudConnector, Command, Class, Entity, DataObject, Filter, Where, Count, Model, AndClause, OrClause, PredicateComparison, ShortHandEqualType, AnyObject, Condition } from '@loopback/repository';
 import { AkeraDiscovery } from './akera-discovery';
 import { EventEmitter } from 'events';
 import { ConnectionState } from '@akeraio/api/dist/lib/Connection';
@@ -234,7 +234,7 @@ export class AkeraConnector implements CrudConnector {
         const conn = await this.getConnection();
 
         const qry: IQuerySelect = { tables: [{ name: model.name, select: SelectionMode.EACH }] };
-
+        
         // transform loopback filter in akera.io format
         this.applyFilter(qry, model, filter);
 
@@ -478,11 +478,11 @@ export class AkeraConnector implements CrudConnector {
         // select all fields if not specified
         if (!qry.tables[0].fields || qry.tables[0].fields.length === 0)
             qry.tables[0].fields = this.getFieldsSelection(model);
-
+            
     }
 
     protected getFieldsSelection(model: ModelDefinition): (string | ISelectField)[] {
-        return Object.keys(model.properties).map((name) => {
+        const fields = Object.keys(model.properties).map((name) => {
             const prop = model.properties[name];
 
             if (prop[this.name]) {
@@ -512,28 +512,73 @@ export class AkeraConnector implements CrudConnector {
             return name;
         });
 
+        this.debuglog(`Fields selection for model: ${model.name}.`, fields.join(','));
+
+        return fields;
     }
 
     protected getWhereClause(model: ModelDefinition, where: Where<AnyObject>): AkeraFilter {
-        if (Object.keys(where).length > 1)
-            throw new Error('Invalid where filter, only single condition or and/or group allowed.');
+        let filter: AkeraFilter;
 
-        if (where['and'])
-            return this.getWhereClauseAnd(model, where as AndClause<AnyObject>);
+        if (where['and'] || where['or']) {
+            if (Object.keys(where).length > 1)
+                throw new Error('Invalid where filter, only single condition for and/or group allowed.');
 
-        if (where['or'])
-            return this.getWhereClauseOr(model, where as OrClause<AnyObject>);
-
-        for (let key in where) {
-            if (!model.properties[key])
-                throw new Error(`Invalid where filter, the field ${key} is not part of the model.`);
-
-            if (typeof where[key] === 'object')
-                return this.getWhereClausePredicate(key, where[key]);
-
-            return QueryFilter.eq(key, where[key]);
+            filter = where['and'] ?
+                this.getWhereClauseAnd(model, where as AndClause<AnyObject>) :
+                this.getWhereClauseOr(model, where as OrClause<AnyObject>);
+        } else {
+            filter = this.getWhereCondition(model, where as Condition<AnyObject>);
         }
 
+        this.debuglog(`Filter selection for model: ${model.name}.`, JSON.stringify(filter));
+
+        return filter;
+    }
+
+    protected getWhereCondition(model: ModelDefinition, where: Condition<AnyObject>): AkeraFilter {
+        const conditions = Object.keys(where);
+
+        // multiple conditions in root, treat this like 'and'
+        if (conditions.length > 1) {
+            const group: AndClause<AnyObject> = {
+                and: conditions.map((c) => {
+                    return { [c]: where[c] };
+                })
+            };
+
+            return this.getWhereClauseAnd(model, group);
+        }
+
+        // only one condition in root
+        const field = conditions[0];
+        const value = where[field];
+
+        if (!model.properties[field])
+            throw new Error(`Invalid where filter, the field ${field} is not part of the model.`);
+
+        switch (typeof value) {
+            case 'string':
+            case 'number':
+            case 'boolean':
+                return QueryFilter.eq(field, value);
+        }
+
+        if (value instanceof Date)
+            return QueryFilter.eq(field, value.toISOString());
+
+        // value is an object, one property condition
+        if (Object.keys(value).length === 1)
+            return this.getWhereClausePredicate(field, where[field]);
+
+        // multiple filter conditions for the same field, this doesn't seem to be supported though
+        const fieldGroup: AndClause<AnyObject> = {
+            and: Object.keys(value).map((c) => {
+                return { [field]: c };
+            })
+        };
+
+        return this.getWhereClauseAnd(model, fieldGroup);
     }
 
     protected getWhereClausePredicate(fieldName: string, condition: PredicateComparison<AnyObject>): AkeraFilter {
