@@ -241,7 +241,7 @@ export class AkeraDiscovery {
             const fieldName = `${field.name.toLowerCase()}__${extent}__`;
 
             properties[fieldName] = {
-                columnName: fieldName,
+                columnName: fieldName.toLowerCase(),
                 dataType: FieldDataType[field.type.toUpperCase()],
                 dataLength: null,
                 dataPrecision: null,
@@ -257,7 +257,7 @@ export class AkeraDiscovery {
                 }
             } else {
                 properties[field.name.toLowerCase()] = {
-                    columnName: field.name,
+                    columnName: field.name.toLowerCase(),
                     dataType: FieldDataType[field.type.toUpperCase()],
                     dataLength: null,
                     dataPrecision: field.type === FieldDataType.DECIMAL ? field.decimals : null,
