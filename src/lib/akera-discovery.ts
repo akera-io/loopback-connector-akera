@@ -1,8 +1,8 @@
 
 import { AkeraConnector } from './akera-connector';
-import { FieldDataType } from '@akeraio/api';
-import { Table } from '@akeraio/api/dist/lib/meta/Table';
+import { FieldDataType, IField, ITable } from '@akeraio/api';
 import { ModelProperties, Schema, Options } from 'loopback-datasource-juggler';
+
 
 export interface DiscoverPagingOptions {
     offset?: number,
@@ -133,18 +133,7 @@ export class AkeraDiscovery {
         let properties: ModelProperties = {};
 
         fields.forEach((field) => {
-            properties[field.name.toLowerCase()] = {
-                columnName: field.name,
-                dataType: FieldDataType[field.type.toUpperCase()],
-                dataLength: null,
-                dataPrecision: field.type === FieldDataType.DECIMAL ? field.decimals : null,
-                dataScale: null,
-                generated: false,
-                nullable: !field.mandatory,
-                owner: table.database.lname,
-                tableName: tableName,
-                type: this.getPropertyType(field.type)
-            };
+            this.addModelProperty(properties, field);
         });
 
         if (pk) {
@@ -197,7 +186,7 @@ export class AkeraDiscovery {
         return keys;
     }
 
-    private async getTable(tableName: string, schema: string): Promise<Table> {
+    protected async getTable(tableName: string, schema: string): Promise<ITable> {
         if (!tableName && tableName.trim().length === 0)
             return Promise.reject('Table name is mandatory for model discovery.');
 
@@ -207,7 +196,7 @@ export class AkeraDiscovery {
         return db.getTable(tableName);
     }
 
-    private getPropertyType(fieldType: FieldDataType): string {
+    protected getPropertyType(fieldType: FieldDataType): string {
         switch (fieldType) {
 
             case FieldDataType.BLOB:
@@ -227,7 +216,7 @@ export class AkeraDiscovery {
         }
     }
 
-    private async getSchema(options: DiscoverModelDefinitionsOptions): Promise<DatabaseSchema> {
+    protected async getSchema(options: DiscoverModelDefinitionsOptions): Promise<DatabaseSchema> {
         const schema = options.schema || options.owner || '';
 
         if (!this.schemas)
@@ -247,5 +236,38 @@ export class AkeraDiscovery {
             return this.schemas[schema];
     }
 
+    protected addModelProperty(properties: ModelProperties, field: IField, extent?: number) {
+        if (extent) {
+            const fieldName = `${field.name.toLowerCase()}__${extent}__`;
+
+            properties[fieldName] = {
+                columnName: fieldName,
+                dataType: FieldDataType[field.type.toUpperCase()],
+                dataLength: null,
+                dataPrecision: null,
+                dataScale: field.type === FieldDataType.DECIMAL ? field.decimals : null,
+                generated: false,
+                nullable: !field.mandatory,
+                type: this.getPropertyType(field.type)
+            };
+        } else {
+            if (field.extent > 1) {
+                for (let extent = 1; extent <= field.extent; extent++) {
+                    this.addModelProperty(properties, field, extent);
+                }
+            } else {
+                properties[field.name.toLowerCase()] = {
+                    columnName: field.name,
+                    dataType: FieldDataType[field.type.toUpperCase()],
+                    dataLength: null,
+                    dataPrecision: field.type === FieldDataType.DECIMAL ? field.decimals : null,
+                    dataScale: null,
+                    generated: false,
+                    nullable: !field.mandatory,
+                    type: this.getPropertyType(field.type)
+                };
+            }
+        }
+    }
 }
 

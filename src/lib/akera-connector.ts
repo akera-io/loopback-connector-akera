@@ -1,4 +1,4 @@
-import { connect, IConnection, ISetField, IQuerySelect, SelectionMode, Filter as AkeraFilter, QueryFilter, QuerySelect, QueryDelete, QueryUpdate, Record, IConnectionMeta } from '@akeraio/api';
+import { connect, IConnection, ISetField, IQuerySelect, SelectionMode, Filter as AkeraFilter, QueryFilter, QuerySelect, QueryDelete, QueryUpdate, Record, IConnectionMeta, ISelectField } from '@akeraio/api';
 import { debug, Debugger } from 'debug';
 import { ConnectInfo } from '@akeraio/net';
 import { ModelDefinition, CrudConnector, Command, Class, Entity, DataObject, Filter, Where, Count, Model, Callback, AndClause, OrClause, PredicateComparison, ShortHandEqualType, AnyObject } from '@loopback/repository';
@@ -24,15 +24,15 @@ export class AkeraConnector implements CrudConnector {
     public configModel?: Model;
     public interfaces?: string[];
 
-    private _available: IConnection[];
-    private _busy: IConnection[];
-    private _connAvailableEvt: EventEmitter;
-    private discovery: AkeraDiscovery;
-    private models: SchemaModel = {};
-    private debugger: Debugger;
+    protected _available: IConnection[];
+    protected _busy: IConnection[];
+    protected _connAvailableEvt: EventEmitter;
+    protected discovery: AkeraDiscovery;
+    protected models: SchemaModel = {};
+    protected debugger: Debugger;
 
     constructor(
-        private config: ConnectionOptions
+        protected config: ConnectionOptions
     ) {
 
 
@@ -57,7 +57,7 @@ export class AkeraConnector implements CrudConnector {
         return this.config.connectPoolSize === undefined || this.config.connectPoolSize > 0;
     }
 
-    private get connection(): IConnection {
+    protected get connection(): IConnection {
         if (this._available.length > 0) {
             const conn = this._available.pop();
 
@@ -72,7 +72,7 @@ export class AkeraConnector implements CrudConnector {
         throw new Error('No connection available in the connection pool.');
     }
 
-    private set connection(conn: IConnection) {
+    protected set connection(conn: IConnection) {
         conn.autoReconnect = true;
 
         conn.stateChange.on('state', (state) => {
@@ -110,7 +110,7 @@ export class AkeraConnector implements CrudConnector {
         this._busy.push(conn);
     }
 
-    private getConnection(): Promise<IConnection> {
+    protected getConnection(): Promise<IConnection> {
         try {
             // try to resolve using one already available
             return Promise.resolve(this.connection);
@@ -355,7 +355,7 @@ export class AkeraConnector implements CrudConnector {
         throw new Error("Method not implemented.");
     }
 
-    private resetMissingProperties<IdType>(data: DataObject<Entity>, model: ModelDefinition, id: IdType): DataObject<Entity> {
+    protected resetMissingProperties<IdType>(data: DataObject<Entity>, model: ModelDefinition, id: IdType): DataObject<Entity> {
         for (let p in model.properties) {
             if (model.properties[p].id)
                 data[p] = id;
@@ -368,7 +368,7 @@ export class AkeraConnector implements CrudConnector {
         return data;
     }
 
-    private getModelIds(model: ModelDefinition): string[] {
+    protected getModelIds(model: ModelDefinition): string[] {
         if (model['__pks__'])
             return model['__pks__'];
 
@@ -393,7 +393,7 @@ export class AkeraConnector implements CrudConnector {
         return model['__pks__'];
     }
 
-    private getModelId<IdType>(model: ModelDefinition, entity: DataObject<Entity>): IdType {
+    protected getModelId<IdType>(model: ModelDefinition, entity: DataObject<Entity>): IdType {
         const keys = this.getModelIds(model);
 
         if (keys.length === 1)
@@ -402,7 +402,7 @@ export class AkeraConnector implements CrudConnector {
         throw new Error(`The primary key for model ${model.name} is composed: ${keys.join(",")}.`);
     }
 
-    private getFilterById?<IdType>(model: ModelDefinition, id: IdType): Where<Entity> {
+    protected getFilterById?<IdType>(model: ModelDefinition, id: IdType): Where<Entity> {
         const keys = this.getModelIds(model);
 
         if (keys.length === 1)
@@ -411,7 +411,7 @@ export class AkeraConnector implements CrudConnector {
         throw new Error(`Not all values for the primary key of model ${model.name} provided: ${keys.slice(1).join(",")}.`);
     }
 
-    private getFilterByIds?<IdType>(model: ModelDefinition, id: IdType[]): Where<Entity> {
+    protected getFilterByIds?<IdType>(model: ModelDefinition, id: IdType[]): Where<Entity> {
         const keys = this.getModelIds(model);
 
         if (keys.length > id.length)
@@ -424,7 +424,7 @@ export class AkeraConnector implements CrudConnector {
         };
     }
 
-    private applyFilter(qry: IQuerySelect, model: ModelDefinition, filter?: Filter<AnyObject>) {
+    protected applyFilter(qry: IQuerySelect, model: ModelDefinition, filter?: Filter<AnyObject>) {
         if (qry.tables.length === 0)
             return;
 
@@ -477,11 +477,44 @@ export class AkeraConnector implements CrudConnector {
 
         // select all fields if not specified
         if (!qry.tables[0].fields || qry.tables[0].fields.length === 0)
-            qry.tables[0].fields = Object.keys(model.properties);
+            qry.tables[0].fields = this.getFieldsSelection(model);
 
     }
 
-    private getWhereClause(model: ModelDefinition, where: Where<AnyObject>): AkeraFilter {
+    protected getFieldsSelection(model: ModelDefinition): (string | ISelectField)[] {
+        return Object.keys(model.properties).map((name) => {
+            const prop = model.properties[name];
+
+            if (prop[this.name]) {
+                let fieldName = name;
+
+                if (prop[this.name]['columnName'])
+                    fieldName = prop[this.name]['columnName'].toLowerCase();
+
+                if (name !== fieldName) {
+                    const segments = fieldName.split('__');
+
+                    if (segments.length > 2 && segments[segments.length - 1] === '') {
+                        return {
+                            alias: name,
+                            name: segments.splice(0, segments.length - 2).join('__'),
+                            extent: parseInt(segments[0])
+                        }
+                    }
+
+                    return {
+                        name: fieldName,
+                        alias: name
+                    }
+                }
+            }
+
+            return name;
+        });
+
+    }
+
+    protected getWhereClause(model: ModelDefinition, where: Where<AnyObject>): AkeraFilter {
         if (Object.keys(where).length > 1)
             throw new Error('Invalid where filter, only single condition or and/or group allowed.');
 
@@ -503,7 +536,7 @@ export class AkeraConnector implements CrudConnector {
 
     }
 
-    private getWhereClausePredicate(fieldName: string, condition: PredicateComparison<AnyObject>): AkeraFilter {
+    protected getWhereClausePredicate(fieldName: string, condition: PredicateComparison<AnyObject>): AkeraFilter {
         if (condition.eq != undefined)
             return QueryFilter.eq(fieldName, condition.eq as ShortHandEqualType);
 
@@ -545,13 +578,13 @@ export class AkeraConnector implements CrudConnector {
         throw new Error(`Filter condition not supported: ${JSON.stringify(condition)}.`);
     }
 
-    private getWhereClauseAnd(model: ModelDefinition, where: AndClause<AnyObject>): AkeraFilter {
+    protected getWhereClauseAnd(model: ModelDefinition, where: AndClause<AnyObject>): AkeraFilter {
         return QueryFilter.and(where.and.map((condition) => {
             return this.getWhereClause(model, condition);
         }));
     }
 
-    private getWhereClauseOr(model: ModelDefinition, where: OrClause<AnyObject>): AkeraFilter {
+    protected getWhereClauseOr(model: ModelDefinition, where: OrClause<AnyObject>): AkeraFilter {
         return QueryFilter.or(where.or.map((condition) => {
             return this.getWhereClause(model, condition);
         }));
