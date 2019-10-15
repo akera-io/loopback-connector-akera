@@ -476,6 +476,9 @@ export class AkeraConnector implements CrudConnector {
             }
 
             if (filter.order) {
+                if (typeof filter.order === 'string')
+                    filter.order = [filter.order];
+                    
                 qry.sort = [];
 
                 for (let sort of filter.order) {
