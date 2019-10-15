@@ -277,9 +277,10 @@ export class AkeraConnector implements CrudConnector {
     async updateAll(modelClass: Class<Entity>, data: DataObject<Entity>, where?: Where<Entity>, options?: AnyObject): Promise<Count> {
         const model: ModelDefinition = modelClass.definition;
         const conn = await this.getConnection();
-        const filter: AkeraFilter = this.getWhereClause(model, where);
+        const filter: AkeraFilter = where ? this.getWhereClause(model, where) : undefined;
 
-        this.debuglog(`Update all filter selection for model: ${model.name}.`, JSON.stringify(filter));
+        if (filter)
+            this.debuglog(`Update all filter selection for model: ${model.name}.`, JSON.stringify(filter));
 
         const qry: QueryUpdate = conn.query.update(model.name, data as Record, filter);
 
@@ -311,9 +312,10 @@ export class AkeraConnector implements CrudConnector {
     async deleteAll(modelClass: Class<Entity>, where?: Where<Entity>, options?: AnyObject): Promise<Count> {
         const model: ModelDefinition = modelClass.definition;
         const conn = await this.getConnection();
-        const filter: AkeraFilter = this.getWhereClause(model, where);
+        const filter: AkeraFilter = where ? this.getWhereClause(model, where) : undefined;
 
-        this.debuglog(`Delete all filter selection for model: ${model.name}.`, JSON.stringify(filter));
+        if (filter)
+            this.debuglog(`Delete all filter selection for model: ${model.name}.`, JSON.stringify(filter));
 
         const qry: QueryDelete = conn.query.delete(model.name, filter);
 
@@ -340,9 +342,10 @@ export class AkeraConnector implements CrudConnector {
     async count(modelClass: Class<Entity>, where?: Where<Entity>, options?: AnyObject): Promise<Count> {
         const model: ModelDefinition = modelClass.definition;
         const conn = await this.getConnection();
-        const filter: AkeraFilter = this.getWhereClause(model, where);
+        const filter: AkeraFilter = where ? this.getWhereClause(model, where) : undefined;
 
-        this.debuglog(`Count filter selection for model: ${model.name}.`, JSON.stringify(filter));
+        if (filter)
+            this.debuglog(`Count filter selection for model: ${model.name}.`, JSON.stringify(filter));
 
         const qry: QuerySelect = conn.query.select(model.name, filter);
 
@@ -478,7 +481,7 @@ export class AkeraConnector implements CrudConnector {
             if (filter.order) {
                 if (typeof filter.order === 'string')
                     filter.order = [filter.order];
-                    
+
                 qry.sort = [];
 
                 for (let sort of filter.order) {
@@ -542,6 +545,9 @@ export class AkeraConnector implements CrudConnector {
     }
 
     protected getWhereClause(model: ModelDefinition, where: Where<AnyObject>): AkeraFilter {
+        if (!model || !where || Object.keys(where).length === 0)
+            return undefined;
+            
         if (where['and'] || where['or']) {
             if (Object.keys(where).length > 1)
                 throw new Error('Invalid where filter, only single condition for and/or group allowed.');
