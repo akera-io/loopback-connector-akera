@@ -45,7 +45,7 @@ describe('Test model discovery', () => {
                 for (let k in model.properties) {
                     let prop = model.properties[k];
 
-                    should(prop).have.properties('type', 'columnName', 'tableName', 'owner', 'nullable').not.undefined;
+                    should(prop).have.properties('type', 'columnName', 'nullable').not.undefined;
                 }
             })
         }
@@ -81,7 +81,7 @@ describe('Test model discovery', () => {
             should(properties).not.be.undefined();
             for (let prop of properties) {
 
-                should(prop).have.properties('columnName', 'dataType', 'nullable', 'tableName', 'owner', 'type');
+                should(prop).have.properties('columnName', 'dataType', 'nullable', 'type');
                 if (prop.columnName === 'CustNum')
                     should(prop).have.property('id', true);
             }

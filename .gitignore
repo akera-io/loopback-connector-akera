@@ -2,5 +2,5 @@
 node_modules/
 coverage/
 dist/
-test/dev
+test/acceptance/dev
 test/dist
