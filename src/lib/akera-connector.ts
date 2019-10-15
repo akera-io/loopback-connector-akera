@@ -503,8 +503,6 @@ export class AkeraConnector implements CrudConnector {
         // select all fields if not specified
         if (!qry.tables[0].fields || qry.tables[0].fields.length === 0)
             qry.tables[0].fields = this.getFieldsSelection(model);
-
-
     }
 
     protected getFieldsSelection(model: ModelDefinition): (string | ISelectField)[] {
