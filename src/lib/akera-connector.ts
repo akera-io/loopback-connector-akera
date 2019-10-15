@@ -196,6 +196,7 @@ export class AkeraConnector implements CrudConnector {
     // closes the (all) active connection(s)
     public disconnect(): Promise<void> {
         return Promise.all(this._available.map((conn) => {
+            this.debuglog(`Disconnect akera.io: ${conn.address}.`);
             return conn.disconnect();
         })).then(() => {
 
@@ -234,7 +235,7 @@ export class AkeraConnector implements CrudConnector {
         const conn = await this.getConnection();
 
         const qry: IQuerySelect = { tables: [{ name: model.name, select: SelectionMode.EACH }] };
-        
+
         // transform loopback filter in akera.io format
         this.applyFilter(qry, model, filter);
 
@@ -246,8 +247,11 @@ export class AkeraConnector implements CrudConnector {
 
         const conn = await this.getConnection();
         const where = Array.isArray(id) ? this.getFilterByIds(model, id) : this.getFilterById(model, id);
+        const filter: AkeraFilter = this.getWhereClause(model, where);
 
-        const qry: QuerySelect = conn.query.select(model.name, this.getWhereClause(model, where));
+        this.debuglog(`Find by id filter selection for model: ${model.name}.`, JSON.stringify(filter));
+
+        const qry: QuerySelect = conn.query.select(model.name, filter);
 
         return qry.all().then((rows) => {
             if (rows.length === 1)
@@ -273,8 +277,11 @@ export class AkeraConnector implements CrudConnector {
     async updateAll(modelClass: Class<Entity>, data: DataObject<Entity>, where?: Where<Entity>, options?: AnyObject): Promise<Count> {
         const model: ModelDefinition = modelClass.definition;
         const conn = await this.getConnection();
+        const filter: AkeraFilter = this.getWhereClause(model, where);
 
-        const qry: QueryUpdate = conn.query.update(model.name, data as Record, this.getWhereClause(model, where));
+        this.debuglog(`Update all filter selection for model: ${model.name}.`, JSON.stringify(filter));
+
+        const qry: QueryUpdate = conn.query.update(model.name, data as Record, filter);
 
         return qry.go().then((count) => {
             return { count: count > 0 ? count : 0 };
@@ -284,8 +291,10 @@ export class AkeraConnector implements CrudConnector {
     async updateById?<IdType>(modelClass: Class<Entity>, id: IdType, data: DataObject<Entity>, options?: AnyObject): Promise<boolean> {
         const model: ModelDefinition = modelClass.definition;
         const conn = await this.getConnection();
-
         const filter = Array.isArray(id) ? this.getFilterByIds(model, id) : this.getFilterById(model, id);
+
+        this.debuglog(`Update by id filter selection for model: ${model.name}.`, JSON.stringify(filter));
+
         const qry: QueryUpdate = conn.query.update(model.name, data as Record, this.getWhereClause(model, filter));
 
         return qry.go().then((count) => {
@@ -302,8 +311,11 @@ export class AkeraConnector implements CrudConnector {
     async deleteAll(modelClass: Class<Entity>, where?: Where<Entity>, options?: AnyObject): Promise<Count> {
         const model: ModelDefinition = modelClass.definition;
         const conn = await this.getConnection();
+        const filter: AkeraFilter = this.getWhereClause(model, where);
 
-        const qry: QueryDelete = conn.query.delete(model.name, this.getWhereClause(model, where));
+        this.debuglog(`Delete all filter selection for model: ${model.name}.`, JSON.stringify(filter));
+
+        const qry: QueryDelete = conn.query.delete(model.name, filter);
 
         return qry.go().then((count) => {
             return { count: count > 0 ? count : 0 };
@@ -315,6 +327,9 @@ export class AkeraConnector implements CrudConnector {
         const conn = await this.getConnection();
 
         const filter = Array.isArray(id) ? this.getFilterByIds(model, id) : this.getFilterById(model, id);
+
+        this.debuglog(`Delete by id filter selection for model: ${model.name}.`, JSON.stringify(filter));
+
         const qry: QueryDelete = conn.query.delete(model.name, this.getWhereClause(model, filter));
 
         return qry.go().then((count) => {
@@ -325,8 +340,11 @@ export class AkeraConnector implements CrudConnector {
     async count(modelClass: Class<Entity>, where?: Where<Entity>, options?: AnyObject): Promise<Count> {
         const model: ModelDefinition = modelClass.definition;
         const conn = await this.getConnection();
+        const filter: AkeraFilter = this.getWhereClause(model, where);
 
-        const qry: QuerySelect = conn.query.select(model.name, this.getWhereClause(model, where));
+        this.debuglog(`Count filter selection for model: ${model.name}.`, JSON.stringify(filter));
+
+        const qry: QuerySelect = conn.query.select(model.name, filter);
 
         return qry.count().then((count) => {
             return { count: count > 0 ? count : 0 };
@@ -429,6 +447,8 @@ export class AkeraConnector implements CrudConnector {
             return;
 
         if (filter) {
+            this.debuglog(`Loopback filter for model: ${model.name}.`, JSON.stringify(filter));
+
             if (filter.limit > 0)
                 qry.limit = filter.limit;
             if (filter.offset || filter.skip)
@@ -473,12 +493,15 @@ export class AkeraConnector implements CrudConnector {
 
             if (filter.where)
                 qry.tables[0].filter = this.getWhereClause(model, filter.where);
+
+            this.debuglog(`Akera filter for model: ${model.name}.`, JSON.stringify(qry));
         }
 
         // select all fields if not specified
         if (!qry.tables[0].fields || qry.tables[0].fields.length === 0)
             qry.tables[0].fields = this.getFieldsSelection(model);
-            
+
+
     }
 
     protected getFieldsSelection(model: ModelDefinition): (string | ISelectField)[] {
@@ -512,28 +535,22 @@ export class AkeraConnector implements CrudConnector {
             return name;
         });
 
-        this.debuglog(`Fields selection for model: ${model.name}.`, fields.join(','));
+        this.debuglog(`Fields selection for model: ${model.name}.`, JSON.stringify(fields));
 
         return fields;
     }
 
     protected getWhereClause(model: ModelDefinition, where: Where<AnyObject>): AkeraFilter {
-        let filter: AkeraFilter;
-
         if (where['and'] || where['or']) {
             if (Object.keys(where).length > 1)
                 throw new Error('Invalid where filter, only single condition for and/or group allowed.');
 
-            filter = where['and'] ?
+            return where['and'] ?
                 this.getWhereClauseAnd(model, where as AndClause<AnyObject>) :
                 this.getWhereClauseOr(model, where as OrClause<AnyObject>);
         } else {
-            filter = this.getWhereCondition(model, where as Condition<AnyObject>);
+            return this.getWhereCondition(model, where as Condition<AnyObject>);
         }
-
-        this.debuglog(`Filter selection for model: ${model.name}.`, JSON.stringify(filter));
-
-        return filter;
     }
 
     protected getWhereCondition(model: ModelDefinition, where: Condition<AnyObject>): AkeraFilter {
