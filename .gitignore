@@ -4,3 +4,4 @@ coverage/
 dist/
 test/acceptance/dev
 test/dist
+package-lock.json

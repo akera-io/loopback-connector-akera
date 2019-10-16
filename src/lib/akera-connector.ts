@@ -36,7 +36,7 @@ export class AkeraConnector implements CrudConnector {
     ) {
 
 
-        this.debugger = debug('loopback:connector:akera');
+        this.debugger = debug(`loopback:connector:${this.name}`);
         this.debugger.enabled = this.debugger.enabled || config.debug;
 
         this._available = [];
