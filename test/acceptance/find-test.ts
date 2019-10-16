@@ -105,119 +105,119 @@ describe('Test find method', () => {
     })
 
     it('test find - where - eq filter', async () => {
-        const eqFilter = refObj.state;
+        const eqFilter = refObj.state.toLowerCase();
 
         let data = await doFind({ where: { state: { eq: eqFilter } } });
 
         should(data.length).be.equal(1, 'Size should be 1 for eq filter when key is involved');
 
-        should(data[0]['state']).be.equal(eqFilter, 'Result should have key field matching with eq property');
+        should(data[0]['state'].toLowerCase()).be.equal(eqFilter, 'Result should have key field matching with eq property');
 
     })
 
     it('test find - where - neq filter', async () => {
-        const neqFilter = refObj.state;
+        const neqFilter = refObj.state.toLowerCase();
 
         let data = await doFind({ where: { state: { neq: neqFilter } } });
 
         should(data.length).be.equal(initCount - 1, 'Size should be total count minus 1 because of neq filter set on key field');
 
         data.forEach((row) => {
-            should(row['state']).not.be.equal(neqFilter, 'Result should not include object with field defined in neq');
+            should(row['state'].toLowerCase()).not.be.equal(neqFilter, 'Result should not include object with field defined in neq');
         })
     })
 
     it('test find - where - gt filter', async () => {
-        const gtFilter = refObj.state;
+        const gtFilter = refObj.state.toLowerCase();
 
         let data = await doFind({ where: { state: { gt: gtFilter } } });
 
         data.forEach((row) => {
-            should(row['state'] > gtFilter).be.equal(true, `Result should have filter property greater than ${gtFilter}`);
+            should(row['state'].toLowerCase() > gtFilter).be.equal(true, `Result should have filter property greater than ${gtFilter}`);
         })
     })
 
     it('test find - where - gte filter', async () => {
-        const gteFilter = refObj.state;
+        const gteFilter = refObj.state.toLowerCase();
 
         let data = await doFind({ where: { state: { gte: gteFilter } } });
 
         data.forEach((row) => {
-            should(row['state'] >= gteFilter).be.equal(true, `Result should have filter property greater or equal than ${gteFilter}`);
+            should(row['state'].toLowerCase() >= gteFilter).be.equal(true, `Result should have filter property greater or equal than ${gteFilter}`);
         })
 
     })
 
     it('test find - where - lt filter', async () => {
-        const ltFilter = refObj.state;
+        const ltFilter = refObj.state.toLowerCase();
 
         let data = await doFind({ where: { state: { lt: ltFilter } } });
 
         data.forEach((row) => {
-            should(row['state'] < ltFilter).be.equal(true, `Result should have filter property lower than ${ltFilter}`);
+            should(row['state'].toLowerCase() < ltFilter).be.equal(true, `Result should have filter property lower than ${ltFilter}`);
         })
     })
 
     it('test find - where - lte filter', async () => {
-        const lteFilter = refObj.state;
+        const lteFilter = refObj.state.toLowerCase();
 
         let data = await doFind({ where: { state: { lte: lteFilter } } });
 
         data.forEach((row) => {
-            should(row['state'] <= lteFilter).be.equal(true, `Result should have filter property lower or equal than ${lteFilter}`);
+            should(row['state'].toLowerCase() <= lteFilter).be.equal(true, `Result should have filter property lower or equal than ${lteFilter}`);
         })
 
     })
 
     it('test find - where - between filter', async () => {
-        const betweenStop = refObj.state;
-        const betweenStart = states[0]['state'];
+        const betweenStop = refObj.state.toLowerCase();
+        const betweenStart = states[0]['state'].toLowerCase();
 
         let data = await doFind({ where: { state: { between: [betweenStart, betweenStop] } } });
 
         should(data.length).be.equal(midPosition + 1, 'Result size length should be midPosition + 1');
 
         data.forEach((row) => {
-            should(row['state'] <= betweenStop).be.equal(true, `Result should have filter property lower or equal than ${betweenStop}`);
-            should(row['state'] >= betweenStart).be.equal(true, `Result should have filter property lower or equal than ${betweenStart}`);
+            should(row['state'].toLowerCase() <= betweenStop).be.equal(true, `Result should have filter property lower or equal than ${betweenStop}`);
+            should(row['state'].toLowerCase() >= betweenStart).be.equal(true, `Result should have filter property greater or equal than ${betweenStart}`);
         })
 
     })
 
     it('test find - where - inq filter', async () => {
-        const inq1 = refObj.state;
-        const inq2 = states[0]['state'];
-        const inq3 = states[initCount - 1]['state'];
+        const inq1 = refObj.state.toLowerCase();
+        const inq2 = states[0]['state'].toLowerCase();
+        const inq3 = states[initCount - 1]['state'].toLowerCase();
 
         let data = await doFind({ where: { state: { inq: [inq1, inq2, inq3] } } });
 
         should(data.length).be.equal(3, 'Result size length should be 3');
 
         data.forEach((row) => {
-            should(row['state'] == inq1 || row['state'] == inq2 || row['state'] == inq3).be
+            should(row['state'].toLowerCase() == inq1 || row['state'].toLowerCase() == inq2 || row['state'].toLowerCase() == inq3).be
                 .equal(true, `Result should have filter property equal with ${inq1} or ${inq2} or ${inq3}`);
         })
     })
 
     it('test find - where - nin filter', async () => {
-        const nin1 = refObj.state;
-        const nin2 = states[0]['state'];
-        const nin3 = states[initCount - 1]['state'];
+        const nin1 = refObj.state.toLowerCase();
+        const nin2 = states[0]['state'].toLowerCase();
+        const nin3 = states[initCount - 1]['state'].toLowerCase();
 
         let data = await doFind({ where: { state: { nin: [nin1, nin2, nin3] } } });
 
         should(data.length).be.equal(initCount - 3, 'Result size length should be initial count minus 3');
 
         data.forEach((row) => {
-            should(row['state'] != nin1 && row['state'] != nin2 && row['state'] != nin3).be
+            should(row['state'].toLowerCase() != nin1 && row['state'].toLowerCase() != nin2 && row['state'].toLowerCase() != nin3).be
                 .equal(true, `Result should have filter property equal with ${nin1} or ${nin2} or ${nin3}`);
         })
     })
 
     it('test find - where - composed filter for same property using and operator', async () => {
-        const neq = refObj.state;
-        const gt = states[0]['state'];
-        const lt = states[initCount - 1]['state'];
+        const neq = refObj.state.toLowerCase();
+        const gt = states[0]['state'].toLowerCase();
+        const lt = states[initCount - 1]['state'].toLowerCase();
 
         let data = await doFind(
             {
@@ -234,15 +234,15 @@ describe('Test find method', () => {
         should(data.length).be.equal(initCount - 3, 'Result size length should be initial count minus 3');
         
         data.forEach((row) => {
-            should(row['state'] != neq && row['state'] != gt && row['state'] != lt).be
+            should(row['state'].toLowerCase() != neq && row['state'].toLowerCase() != gt && row['state'].toLowerCase() != lt).be
                 .equal(true, `Result should have filter property equal with ${neq} or ${gt} or ${lt}`);
         })
 
     })
 
     it('test find - where - composed filter for different properties using and operator', async () => {
-        const stateGt = states[0]['state'];
-        const statenamelt = refObj.statename;
+        const stateGt = states[0]['state'].toLowerCase();
+        const statenamelt = refObj.statename.toLowerCase();
 
         let data = await doFind(
             {
@@ -255,8 +255,12 @@ describe('Test find method', () => {
                 }
             }
         );
-        
-        should(data.length).be.equal(midPosition - 2, 'Result size length should be mid position count minus 2');
+
+        data.forEach((row) => {
+            should( row['state'].toLowerCase() > stateGt ).be.equal( true, 'Result should have state propery greater than filter');
+            should( row['statename'].toLowerCase() < statenamelt ).be.equal( true, 'Result should have statename properylower than filter')
+        });
+
     })
 
     it('test find filter - fields', async () => {
@@ -289,7 +293,7 @@ describe('Test find method', () => {
         let minState = data[0];
 
         data.forEach((row) => {
-            should(row['statename'] >= minState['statename'] ).be.equal(true, 'Records should be in ascendence order by selected field');
+            should(row['statename'].toLowerCase() >= minState['statename'].toLowerCase() ).be.equal(true, 'Records should be in ascendence order by selected field');
             minState = row;
         });
     })
@@ -303,19 +307,19 @@ describe('Test find method', () => {
 
         should(data.length).be.greaterThan(0, 'Result array should not be empty');
 
-        let currentState =  data[0]['state'];
-        let refRegion, currentRegion = data[0]['region'];
+        let currentState =  data[0]['state'].toLowerCase();
+        let refRegion, currentRegion = data[0]['region'].toLowerCase();
 
         data.forEach((row) => {
-            should( row['region'] >= currentRegion ).be.equal( true, 'Results should be sorted asc after first property');
-            currentRegion = row['region'];
+            should( row['region'].toLowerCase() >= currentRegion ).be.equal( true, 'Results should be sorted asc after first property');
+            currentRegion = row['region'].toLowerCase();
 
-            if ( row['region'] != refRegion ) {
-                refRegion = row['region'];
-                currentState = row['state'];
+            if ( row['region'].toLowerCase() != refRegion ) {
+                refRegion = row['region'].toLowerCase();
+                currentState = row['state'].toLowerCase();
             } else {
-                should(row['state'] <= currentState ).be.equal( true, 'Results should be sorted desc after second property');
-                currentState = row['state'];
+                should(row['state'].toLowerCase() <= currentState ).be.equal( true, 'Results should be sorted desc after second property');
+                currentState = row['state'].toLowerCase();
             }
         })
     })
@@ -329,19 +333,19 @@ describe('Test find method', () => {
 
         should(data.length).be.greaterThan(0, 'Result array should not be empty');
 
-        let currentState =  data[0]['state'];
-        let refRegion, currentRegion = data[0]['region'];
+        let currentState =  data[0]['state'].toLowerCase();
+        let refRegion, currentRegion = data[0]['region'].toLowerCase();
 
         data.forEach((row) => {
-            should( row['region'] <= currentRegion ).be.equal( true, 'Results should be sorted asc after first property');
-            currentRegion = row['region'];
+            should( row['region'].toLowerCase() <= currentRegion ).be.equal( true, 'Results should be sorted asc after first property');
+            currentRegion = row['region'].toLowerCase();
 
-            if ( row['region'] != refRegion ) {
-                refRegion = row['region'];
-                currentState = row['state'];
+            if ( row['region'].toLowerCase() != refRegion ) {
+                refRegion = row['region'].toLowerCase();
+                currentState = row['state'].toLowerCase();
             } else {
-                should(row['state'] >= currentState ).be.equal( true, 'Results should be sorted desc after second property');
-                currentState = row['state'];
+                should(row['state'].toLowerCase() >= currentState ).be.equal( true, 'Results should be sorted desc after second property');
+                currentState = row['state'].toLowerCase();
             }
         })
     })

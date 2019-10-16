@@ -1,5 +1,5 @@
 import { DataSource, PersistedModel } from "loopback-datasource-juggler";
-import { InitTests } from "../init";
+import { InitTests } from "./init";
 import { Count } from '@loopback/repository';
 import * as should from "should";
 
