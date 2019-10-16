@@ -1,5 +1,5 @@
 import { DataSource, PersistedModel, Filter } from "loopback-datasource-juggler";
-import { InitTests } from "../init";
+import { InitTests } from "./init";
 import * as should from "should";
 
 let ds: DataSource;

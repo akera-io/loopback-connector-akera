@@ -29,6 +29,47 @@ export class InitTests {
                 }
             });
 
+        ds.createModel('Warehouse',
+            {
+                address: {
+                    type: String,
+                    required: false
+                },
+                address2: {
+                    type: String,
+                    required: false
+                },
+                city: {
+                    type: String,
+                    required: false
+                },
+                country: {
+                    type: String,
+                    required: false
+                },
+                phone: {
+                    type: String,
+                    required: false
+                },
+                postalcode: {
+                    type: String,
+                    required: false
+                },
+                state: {
+                    type: String,
+                    required: false
+                },
+                warehousename: {
+                    type: String,
+                    required: false
+                },
+                warehousenum: {
+                    type: Number,
+                    id: true,
+                    required: false
+                }
+            });
+
         return ds;
     }
 }
