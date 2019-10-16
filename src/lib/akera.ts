@@ -130,10 +130,13 @@ export class AkeraConnectorProxy {
    * @param {Function}
    *         callback The callback function
    */
-  public create(modelName: string, data: DataObject<Entity>, options: AnyObject, callback: Callback<DataObject<Entity>>) {
-    this.connector.create(this.connector.getModel(modelName), data, options)
+  public create<IdType>(modelName: string, data: DataObject<Entity>, options: AnyObject, callback: Callback<IdType>) {
+    const model = this.connector.getModel(modelName);
+
+    this.connector.create(model, data, options)
       .then((response) => {
-        callback && callback(null, response);
+        // loopback expects only the new model id to be sent back
+        callback && callback(null, this.connector.getModelId(model.definition, response));
       })
       .catch((err: Error) => {
         delete err.stack;

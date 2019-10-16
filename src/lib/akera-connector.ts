@@ -414,7 +414,7 @@ export class AkeraConnector implements CrudConnector {
         return model['__pks__'];
     }
 
-    protected getModelId<IdType>(model: ModelDefinition, entity: DataObject<Entity>): IdType {
+    public getModelId<IdType>(model: ModelDefinition, entity: DataObject<Entity>): IdType {
         const keys = this.getModelIds(model);
 
         if (keys.length === 1)
