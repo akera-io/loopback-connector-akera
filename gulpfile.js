@@ -15,23 +15,23 @@ gulp.task('compile', function () {
         .pipe(sourcemaps.init())
         .pipe(tsProject())
         .pipe(sourcemaps.write())
-        .pipe(gulp.dest('dist'));
+        .pipe(gulp.dest('.'));
 });
 
 gulp.task('cleanup', function () {
-    return del(['dist']);
+    return del(['lib']);
 });
 
 gulp.task('logging', function () {
-    return gulp.src(['dist/**/*.js'])
+    return gulp.src(['lib/**/*.js'])
         .pipe(removeLogging())
-        .pipe(gulp.dest('dist'));
+        .pipe(gulp.dest('lib'));
 });
 
 gulp.task('minify', function () {
-    return gulp.src(['dist/**/*.js'], { sourcemaps: true })
+    return gulp.src(['lib/**/*.js'], { sourcemaps: true })
         .pipe(uglify())
-        .pipe(gulp.dest('dist'));
+        .pipe(gulp.dest('lib'));
 });
 
 gulp.task('clean:tests', function () {
@@ -49,7 +49,7 @@ gulp.task('clean:cover', function () {
 });
 
 gulp.task('cover:prepare', function () {
-    return gulp.src(['dist/lib/**/*.js'])
+    return gulp.src(['lib/**/*.js'])
         // Covering files
         .pipe(istanbul())
         // Force `require` to return covered files

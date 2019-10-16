@@ -1,0 +1,7 @@
+/test/
+/src/
+/tsconfig.json
+/typings.json
+/.jscsrc
+/.jshintrc
+/gulpfile.js

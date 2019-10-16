@@ -1,1 +1,1 @@
-module.exports = require('./dist/lib/akera.js').AkeraConnectorProxy; 
+module.exports = require('./lib/akera.js').AkeraConnectorProxy; 
