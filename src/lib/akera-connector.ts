@@ -75,8 +75,9 @@ export class AkeraConnector implements CrudConnector {
     protected set connection(conn: IConnection) {
         conn.autoReconnect = true;
 
-        conn.stateChange.on('state', (state) => {
-            if (state === ConnectionState.API) {
+        conn.on('state', (state, old) => {
+            // API request completed, put the connection back into available pool
+            if (state === ConnectionState.API && old === ConnectionState.WORK_API) {
                 const idx = this._busy.indexOf(conn);
 
                 if (idx !== -1) {
@@ -547,7 +548,7 @@ export class AkeraConnector implements CrudConnector {
     protected getWhereClause(model: ModelDefinition, where: Where<AnyObject>): AkeraFilter {
         if (!model || !where || Object.keys(where).length === 0)
             return undefined;
-            
+
         if (where['and'] || where['or']) {
             if (Object.keys(where).length > 1)
                 throw new Error('Invalid where filter, only single condition for and/or group allowed.');

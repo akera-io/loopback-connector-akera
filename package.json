@@ -1,6 +1,6 @@
 {
   "name": "@akeraio/loopback-connector",
-  "version": "1.0.18",
+  "version": "1.0.19",
   "description": "Akera connector for LoopBack framework",
   "main": "index.js",
   "scripts": {
@@ -11,7 +11,7 @@
     "compile": "gulp compile"
   },
   "dependencies": {
-    "@akeraio/api": "^1.1.10",
+    "@akeraio/api": "^1.1.12",
     "@loopback/repository": "^1.15.1",
     "debug": "^4.1.1",
     "loopback-connector": "^4.9.0"
